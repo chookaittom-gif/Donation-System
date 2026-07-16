@@ -1063,6 +1063,7 @@
     margin-top: auto;
     padding: var(--spacing-md);
     border-top: 1px solid var(--border-light);
+    flex-shrink: 0;
   }
 
   .sidebar-footer .logout-btn {

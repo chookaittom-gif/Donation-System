@@ -606,7 +606,7 @@
             if (bannerEl) {
                 bannerEl.className = 'status-banner post-event';
                 bannerEl.innerHTML = '🕒 กิจกรรมสิ้นสุดแล้ว แต่ยังเปิดรับการสนับสนุนเพิ่มเติม';
-                bannerEl.style.display = '';
+                bannerEl.style.display = 'none';
             }
             
             // Set up form fields for POST_EVENT phase
