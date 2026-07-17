@@ -22,7 +22,8 @@ const CONFIG = {
     Tags: '#บริจาค',
     StartDate: '',
     EndDate: '',
-    TargetAmount: '0',
+    TargetAmount: '150000',
+    OpeningBalance: '0',
     DriveFolderId: '',
     ProjectCoverUrl: '',
     SidebarTitle: 'Your Gift Matters',
@@ -1229,6 +1230,8 @@ function getDashboardDataAll() {
     
     // ===== คำนวณ Stats =====
     const totalAmount = approvedDonations.reduce((sum, d) => sum + (parseFloat(d.Amount) || 0), 0);
+    const openingBalance = parseFloat(String(settings.OpeningBalance || '').replace(/,/g, '')) || 0;
+    const projectTotalAmount = openingBalance + totalAmount;
     const targetAmount = parseFloat(String(settings.TargetAmount || '').replace(/,/g, '')) || 0;
     
     const eventPeriodAmount = approvedDonations
@@ -1253,7 +1256,7 @@ function getDashboardDataAll() {
     const uniqueDonors = new Set(donorKeys).size;
     
     const averageAmount = approvedDonations.length > 0 ? totalAmount / approvedDonations.length : 0;
-    const progress = targetAmount > 0 ? Math.min((totalAmount / targetAmount) * 100, 100) : 0;
+    const progress = targetAmount > 0 ? Math.min((projectTotalAmount / targetAmount) * 100, 100) : 0;
     
     const now = new Date();
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -1272,13 +1275,15 @@ function getDashboardDataAll() {
     
     const stats = {
       totalAmount,
+      openingBalance,
+      projectTotalAmount,
       totalDonors: uniqueDonors,
       pendingCount: pendingDonations.length,
       averageAmount: Math.round(averageAmount),
       targetAmount,
       progress: Math.round(progress * 10) / 10,
       growthPercent: Math.round(growthPercent),
-      remainingAmount: Math.max(0, targetAmount - totalAmount),
+      remainingAmount: Math.max(0, targetAmount - projectTotalAmount),
       eventPeriodAmount,
       postEventAmount,
       additionalCount
@@ -1354,7 +1359,7 @@ function getDashboardDataAll() {
   } catch (error) {
     console.error('getDashboardDataAll error:', error);
     return {
-      stats: { totalAmount: 0, totalDonors: 0, pendingCount: 0, averageAmount: 0, targetAmount: 0, progress: 0, growthPercent: 0, remainingAmount: 0 },
+      stats: { totalAmount: 0, openingBalance: 0, projectTotalAmount: 0, totalDonors: 0, pendingCount: 0, averageAmount: 0, targetAmount: 0, progress: 0, growthPercent: 0, remainingAmount: 0 },
       chartData: { labels: [], data: [] },
       recentDonations: [],
       topDonors: []
@@ -1373,6 +1378,8 @@ function getDashboardStats() {
     const settings = getSettings();
     
     const totalAmount = approvedDonations.reduce((sum, d) => sum + (parseFloat(d.Amount) || 0), 0);
+    const openingBalance = parseFloat(String(settings.OpeningBalance || '').replace(/,/g, '')) || 0;
+    const projectTotalAmount = openingBalance + totalAmount;
     const targetAmount = parseFloat(String(settings.TargetAmount || '').replace(/,/g, '')) || 0;
     
     const eventPeriodAmount = approvedDonations
@@ -1411,7 +1418,7 @@ function getDashboardStats() {
     
     // Calculate progress
     const progress = targetAmount > 0 
-      ? Math.min((totalAmount / targetAmount) * 100, 100) 
+      ? Math.min((projectTotalAmount / targetAmount) * 100, 100)
       : 0;
     
     // Calculate growth (compare with last month)
@@ -1438,13 +1445,15 @@ function getDashboardStats() {
     
     return {
       totalAmount,
+      openingBalance,
+      projectTotalAmount,
       totalDonors: uniqueDonors,
       pendingCount: pendingDonations.length,
       averageAmount: Math.round(averageAmount),
       targetAmount,
       progress: Math.round(progress * 10) / 10,
       growthPercent: Math.round(growthPercent),
-      remainingAmount: Math.max(0, targetAmount - totalAmount),
+      remainingAmount: Math.max(0, targetAmount - projectTotalAmount),
       eventPeriodAmount,
       postEventAmount,
       additionalCount
@@ -1453,6 +1462,8 @@ function getDashboardStats() {
     console.error('getDashboardStats error:', error);
     return {
       totalAmount: 0,
+      openingBalance: 0,
+      projectTotalAmount: 0,
       totalDonors: 0,
       pendingCount: 0,
       averageAmount: 0,
@@ -2095,6 +2106,8 @@ function getPublicProjectInfo() {
       },
       stats: {
         totalAmount: stats.totalAmount,
+        openingBalance: stats.openingBalance,
+        projectTotalAmount: stats.projectTotalAmount,
         targetAmount: stats.targetAmount,
         remainingAmount: stats.remainingAmount,
         progress: stats.progress,
@@ -2602,10 +2615,16 @@ function collectReportData(options) {
     reportDate: formatThaiDate(new Date()),
     reportPeriod: reportPeriod,
     totalAmount: formatNumberForReport(dashboard.stats.totalAmount),
+    openingBalance: formatNumberForReport(dashboard.stats.openingBalance),
+    projectTotalAmount: formatNumberForReport(dashboard.stats.projectTotalAmount),
     totalDonors: dashboard.stats.totalDonors,
     totalRecords: donations.length,
     targetAmount: formatNumberForReport(dashboard.stats.targetAmount),
+    targetAmountLabel: dashboard.stats.targetAmount > 0
+      ? formatNumberForReport(dashboard.stats.targetAmount) + ' บาท'
+      : 'ไม่จำกัดจำนวน',
     progress: dashboard.stats.progress,
+    successLabel: 'ระดมทุนเพื่อมอบทุนการศึกษาแก่นักศึกษา',
     summary: generateExecutiveSummary(dashboard.stats, settings, donations),
     topDonorTableText: formatTopDonorsTable(topDonorsLimit),
     contactPerson: settings.ContactPerson || '-',
@@ -2872,6 +2891,7 @@ function buildGoogleDocDonationReport(document, data, options) {
   
   const imageBlobs = getReportImageBlobs(data, options);
   appendExecutiveSummaryPage(body, data, imageBlobs);
+  body.appendPageBreak();
   appendProjectInformationPage(body, data, imageBlobs);
   body.appendPageBreak();
   appendDonationDetailPage(body, data);
@@ -2944,7 +2964,7 @@ function createFallbackDonationChartBlob(data) {
     const chartData = Charts.newDataTable()
       .addColumn(Charts.ColumnType.STRING, 'รายการ')
       .addColumn(Charts.ColumnType.NUMBER, 'จำนวนเงิน')
-      .addRow(['ยอดบริจาค', parseReportNumber(data.totalAmount)])
+      .addRow(['ยอดรวมโครงการ', parseReportNumber(data.projectTotalAmount)])
       .addRow(['เป้าหมาย', parseReportNumber(data.targetAmount)])
       .build();
     
@@ -2985,23 +3005,33 @@ function appendExecutiveSummaryPage(body, data, images) {
   
   appendReportHeading(body, 'Summary');
   const summaryTable = body.appendTable([
-    ['💰 ยอดเงินบริจาครวมทั้งหมด', data.totalAmount + ' บาท'],
+    ['💰 ยอดเงินโครงการรวมทั้งหมด', data.projectTotalAmount + ' บาท'],
+    ['📌 ยอดยกมา', data.openingBalance + ' บาท'],
+    ['🧾 ยอดบริจาคในระบบ', data.totalAmount + ' บาท'],
     ['📅 ยอดระหว่างกิจกรรม', data.eventPeriodAmount + ' บาท'],
     ['🕒 ยอดหลังจบกิจกรรม', data.postEventAmount + ' บาท'],
     ['➕ จำนวนรายการสนับสนุนเพิ่มเติม', data.additionalCount + ' รายการ'],
     ['👥 ผู้บริจาคทั้งหมด', data.totalDonors + ' คน'],
     ['🧾 จำนวนรายการ', data.totalRecords + ' รายการ'],
-    ['🎯 เป้าหมาย', data.targetAmount + ' บาท'],
-    ['📈 ความสำเร็จ', data.progress + '%']
+    ['🎯 เป้าหมาย', data.targetAmountLabel || (data.targetAmount + ' บาท')],
+    ['📈 ความสำเร็จ', data.successLabel || '-']
   ]);
   styleCompactReportTable(summaryTable, false);
   
-  appendReportHeading(body, 'Chart');
-  appendReportImage(body, images.chart, 340, 113, 'ข้อมูลยังไม่เพียงพอสำหรับสร้างกราฟ', 13);
+  body.appendPageBreak();
+  const chartHeading = appendReportHeading(body, 'Chart');
+  try {
+    chartHeading.setKeepWithNext(true);
+  } catch (e) { /* best-effort */ }
+  appendReportImage(body, images.chart, 450, 320, 'ข้อมูลยังไม่เพียงพอสำหรับสร้างกราฟ', 13);
   
-  appendReportHeading(body, 'Executive Summary');
+  const summaryHeading = appendReportHeading(body, 'Executive Summary');
+  try {
+    summaryHeading.setKeepWithNext(true);
+  } catch (e) { /* best-effort */ }
   const summaryParagraph = appendReportParagraph(body, data.summary, 13, false, DocumentApp.HorizontalAlignment.LEFT);
   try {
+    summaryParagraph.setKeepLinesTogether(true);
     summaryParagraph.setIndentFirstLine(REPORT_LAYOUT.PT_PER_CM * 0.5);
     summaryParagraph.setIndentEnd(96);
   } catch (e) { /* best-effort */ }
@@ -3016,7 +3046,7 @@ function appendProjectInformationPage(body, data, images) {
   const projectTable = body.appendTable([
     ['ชื่อโครงการ', data.projectName],
     ['ประเภทโครงการ', data.projectType],
-    ['เป้าหมาย', data.targetAmount + ' บาท'],
+    ['เป้าหมาย', data.targetAmountLabel || (data.targetAmount + ' บาท')],
     ['ช่วงเวลารายงาน', data.reportPeriod],
     ['เว็บไซต์', formatReportUrlForWrap(data.publicUrl)]
   ]);
@@ -3411,17 +3441,8 @@ function styleDonationDetailTable(table) {
 function appendFinalReportFooter(body, data, totalPagesEstimate) {
   const reportData = data || {};
   
-  // คำนวณความสูงและ Spacer สำหรับดัน Footer ลงไปอยู่ท้ายหน้า 3 อย่างพอดี
-  const rowCount = (reportData.donations || []).length + 1;
-  const tableHeightEstimate = rowCount * 20.5; // ความสูงเฉลี่ยรวม padding ต่อแถว
-  const otherElementsHeight = 90; // หัวเรื่อง DONATION DETAIL และ ช่วงข้อมูล
-  const footerHeight = 60; // ความสูงข้อความ Footer 4 บรรทัด
-  const targetPrintableHeight = 540; // ความสูงปลอดภัยของหน้า A4 ที่ต้องการลบขอบ
-  
-  const remainingHeight = targetPrintableHeight - tableHeightEstimate - otherElementsHeight - footerHeight;
-  const spacerSize = Math.max(12, remainingHeight);
-  
-  appendReportSpacer(body, spacerSize);
+  // เว้นระยะจากตารางเล็กน้อย แล้วให้ DocumentApp ขึ้นหน้าใหม่ตามพื้นที่จริง
+  appendReportSpacer(body, 18);
   
   const lines = [
     `SDU Lampang Online Donation System (Version ${REPORT_CONFIG.VERSION})`,
@@ -3971,19 +3992,19 @@ function translateStatus(status) {
  */
 function generateExecutiveSummary(stats, settings, donations) {
   const projName = settings.ProjectName || 'โครงการบริจาค';
-  const totalAmount = formatNumberForReport(stats.totalAmount);
+  const totalAmount = formatNumberForReport(stats.projectTotalAmount || stats.totalAmount);
   const totalDonors = stats.totalDonors;
   const totalRecords = donations.length;
   const targetAmount = formatNumberForReport(stats.targetAmount);
   const progress = stats.progress;
   
   let text = `รายงานสรุปยอดเงินบริจาคโครงการ "${projName}"\n`;
-  text += `มียอดเงินบริจาครวมทั้งสิ้น ${totalAmount} บาท จากผู้บริจาคทั้งหมด ${totalDonors} คน `;
+  text += `มียอดเงินโครงการรวมทั้งสิ้น ${totalAmount} บาท จากผู้บริจาคทั้งหมด ${totalDonors} คน `;
   text += `รวมเป็นจำนวนรายการโอนเงิน ${totalRecords} รายการ\n`;
   
   if (stats.targetAmount > 0) {
     text += `คิดเป็น ${progress}% ของเป้าหมายโครงการที่ตั้งไว้ที่ ${targetAmount} บาท `;
-    if (stats.totalAmount >= stats.targetAmount) {
+    if ((stats.projectTotalAmount || stats.totalAmount) >= stats.targetAmount) {
       text += `ซึ่งบรรลุยอดเงินเป้าหมายโครงการเรียบร้อยแล้ว ขอขอบพระคุณผู้บริจาคทุกท่านเป็นอย่างสูง`;
     } else {
       const remaining = formatNumberForReport(stats.remainingAmount);
