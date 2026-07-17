@@ -92,14 +92,6 @@
             });
         }
 
-        // Navigation toggle (mobile)
-        const navToggle = document.querySelector('.nav-toggle');
-        if (navToggle) {
-            navToggle.addEventListener('click', () => {
-                document.querySelector('.nav-links').classList.toggle('active');
-            });
-        }
-
         // Sticky Header CTA scroll handler (UX Optimization)
         const navCta = document.querySelector('.public-nav .nav-cta');
         if (navCta) {
