@@ -1267,7 +1267,10 @@
                 </div>
                 <div class="form-group mb-md">
                     <label class="form-label">รหัสผ่าน (Password)</label>
-                    <input type="password" class="form-control" name="Password" id="userFormPassword" required placeholder="กรอกรหัสผ่าน">
+                    <div class="password-input-wrap">
+                        <input type="password" class="form-control" name="Password" id="userFormPassword" required placeholder="กรอกรหัสผ่าน">
+                        <button type="button" class="password-toggle" id="userFormPasswordToggle" aria-label="แสดงรหัสผ่าน" aria-pressed="false"></button>
+                    </div>
                 </div>
                 <div class="form-group mb-md">
                     <label class="form-label">บทบาท (Role)</label>
