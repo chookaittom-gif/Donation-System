@@ -2237,6 +2237,27 @@
     window.applyFilters = applyFilters;
 
     // ===== EXPORT FUNCTION =====
+    function exportReportChartImage(chart) {
+        if (!chart || !chart.canvas) return null;
+
+        const canvas = chart.canvas;
+        const originalWidth = canvas.width;
+        const originalHeight = canvas.height;
+        const originalStyleWidth = canvas.style.width;
+        const originalStyleHeight = canvas.style.height;
+
+        try {
+            chart.resize(1200, 800);
+            return chart.toBase64Image('image/png', 1);
+        } finally {
+            canvas.style.width = originalStyleWidth;
+            canvas.style.height = originalStyleHeight;
+            canvas.width = originalWidth;
+            canvas.height = originalHeight;
+            chart.resize();
+        }
+    }
+
     async function exportDonations() {
         const btn = document.querySelector('button[onclick="exportDonations()"]') || (event && event.target);
         const { value: formValues } = await Swal.fire({
@@ -2391,7 +2412,7 @@
             let chartImageBase64 = null;
             if (AppState.chart) {
                 try {
-                    chartImageBase64 = AppState.chart.toBase64Image();
+                    chartImageBase64 = exportReportChartImage(AppState.chart);
                 } catch (e) {
                     console.error('Failed to export chart image base64:', e);
                 }
