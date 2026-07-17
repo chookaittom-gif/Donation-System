@@ -504,7 +504,7 @@
 
         // Stats
         document.querySelectorAll('.total-amount').forEach(el => {
-            el.textContent = formatCurrency(stats.totalAmount || 0);
+            el.textContent = formatCurrency(stats.projectTotalAmount || stats.totalAmount || 0);
         });
 
         document.querySelectorAll('.target-amount').forEach(el => {
@@ -643,7 +643,7 @@
         if (noticeEl) {
             if (status === 'POST_EVENT') {
                 noticeEl.className = 'status-banner post-event';
-                noticeEl.innerHTML = '🕒 กิจกรรมหลักสิ้นสุดแล้ว ท่านยังสามารถร่วมบริจาคสนับสนุนเพิ่มเติมได้ผ่านช่องทางนี้';
+                noticeEl.innerHTML = '🕒 กิจกรรมหลักสิ้นสุดแล้ว · ยังเปิดรับการสนับสนุนเพิ่มเติม';
                 noticeEl.style.display = 'block';
             } else {
                 noticeEl.style.display = 'none';
@@ -822,7 +822,7 @@
     }
 
     function renderDashboard(stats, chartData, recentDonations, topDonors) {
-        document.querySelector('.stat-total-amount').textContent = '฿' + formatNumber(stats.totalAmount);
+        document.querySelector('.stat-total-amount').textContent = '฿' + formatNumber(stats.projectTotalAmount || stats.totalAmount || 0);
         document.querySelector('.stat-total-donors').textContent = stats.totalDonors + ' คน';
         document.querySelector('.stat-pending-count').textContent = stats.pendingCount + ' รายการ';
         document.querySelector('.stat-average-amount').textContent = '฿' + formatNumber(stats.averageAmount);
@@ -1154,6 +1154,7 @@
         setInputValue('ProjectCoverUrl', settings.ProjectCoverUrl || '');
         setInputValue('SidebarTitle', settings.SidebarTitle || '');
         setInputValue('TargetAmount', settings.TargetAmount || '');
+        setInputValue('OpeningBalance', settings.OpeningBalance || '');
         setInputValue('StartDate', formatDateForInput(settings.StartDate));
         setInputValue('EndDate', formatDateForInput(settings.EndDate));
         setInputValue('DriveFolderId', settings.DriveFolderId || '');
@@ -1190,6 +1191,7 @@
             ProjectCoverUrl: getInputValue('ProjectCoverUrl'),
             SidebarTitle: getInputValue('SidebarTitle'),
             TargetAmount: getInputValue('TargetAmount'),
+            OpeningBalance: getInputValue('OpeningBalance'),
             StartDate: getInputValue('StartDate'),
             EndDate: getInputValue('EndDate'),
             DriveFolderId: getInputValue('DriveFolderId'),
