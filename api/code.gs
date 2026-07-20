@@ -227,6 +227,7 @@ function doPost(e) {
       'submitDonation',
       'createDonation',
       'saveFileFromBase64',
+      'uploadProjectCover',
       'loginUser',
       'getDashboardStats',
       'getChartData',
@@ -1638,6 +1639,52 @@ function saveFileFromBase64(base64Data, fileName, mimeType) {
 }
 
 /**
+ * อัปโหลดภาพปกโครงการไป Google Drive
+ */
+function uploadProjectCover(base64Data, mimeType, session) {
+  if (session && typeof session === 'object' && session.sessionToken) {
+    requirePermission(session, 'settings.edit');
+  } else {
+    const settings = getSettings();
+    if (settings.AdminPassword) {
+      throw new Error('กรุณาเข้าสู่ระบบก่อนดำเนินการ (Unauthorized)');
+    }
+  }
+
+  try {
+    if (String(mimeType || '').toLowerCase() !== 'image/jpeg') {
+      throw new Error('ภาพปกต้องถูกบีบอัดเป็น JPEG ก่อนอัปโหลด');
+    }
+
+    const base64Content = String(base64Data || '').replace(/^data:[^;]+;base64,/, '');
+    if (!base64Content) {
+      throw new Error('ไม่พบข้อมูลภาพปก');
+    }
+
+    const bytes = Utilities.base64Decode(base64Content);
+    if (bytes.length > 2 * 1024 * 1024) {
+      throw new Error('ภาพปกหลังบีบอัดต้องมีขนาดไม่เกิน 2 MB');
+    }
+
+    const folder = getUploadFolder();
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
+    const blob = Utilities.newBlob(bytes, 'image/jpeg', 'project-cover-' + timestamp + '.jpg');
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return {
+      success: true,
+      fileId: file.getId(),
+      fileUrl: 'https://lh3.googleusercontent.com/d/' + file.getId(),
+      driveUrl: 'https://drive.google.com/file/d/' + file.getId() + '/view'
+    };
+  } catch (error) {
+    console.error('uploadProjectCover error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
  * Get resumable upload URL for large files
  */
 function getResumableUploadUrl(fileName, mimeType, fileSize) {
@@ -2594,6 +2641,10 @@ function collectReportData(options) {
   const reportPeriod = options.startDate || options.endDate 
     ? `${startDateText} ถึง ${endDateText}`
     : 'ข้อมูลทั้งหมด ณ ปัจจุบัน';
+
+  // กราฟในรายงานต้องอ้างอิงรายการที่กรองแล้ว ไม่ใช้กราฟจาก Dashboard
+  const reportChartEndDate = options.endDate ? new Date(options.endDate) : new Date();
+  const reportChartData = getReportChartData(donations, reportChartEndDate, 7);
     
   const topDonorsLimit = getTopDonors(10);
   
@@ -2635,7 +2686,7 @@ function collectReportData(options) {
     contactAttendanceType: settings.ContactAttendanceType || '-',
     note: options.note || '-',
     publicUrl: 'https://donation-system-beige.vercel.app',
-    chartData: dashboard.chartData || null,
+    chartData: reportChartData,
     donations: donations,
     settings: settings,
     eventPeriodAmount: formatNumberForReport(eventPeriodAmount),
@@ -2914,12 +2965,9 @@ function getReportImageBlobs(data, options) {
   options = options || {};
   const projectImageBlob = getValidatedReportImageBlob(getLogoBlob(data.settings), 'PROJECT_IMAGE');
   const qrBlob = getValidatedReportImageBlob(getQRCodeBlob(), 'QR_CODE');
-  const chartBlob = hasSufficientReportChartData(data) ? (
-    getValidatedReportImageBlob(
-      options.chartImageBase64 ? getBlobFromBase64(options.chartImageBase64, 'chart.png') : null,
-      'CHART_IMAGE'
-    ) || createFallbackDonationChartBlob(data)
-  ) : null;
+  const chartBlob = hasSufficientReportChartData(data)
+    ? getValidatedReportImageBlob(createFallbackDonationChartBlob(data), 'CHART_IMAGE')
+    : null;
   
   return {
     projectImage: projectImageBlob,
@@ -2934,6 +2982,40 @@ function hasSufficientReportChartData(data) {
     : [];
   const nonZeroValues = values.filter(value => value > 0);
   return values.length > 1 && nonZeroValues.length > 0;
+}
+
+function getReportChartData(donations, endDate, days) {
+  const labels = [];
+  const data = [];
+  const thaiDays = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'];
+  const chartDays = days || 7;
+  const chartEndDate = endDate instanceof Date ? new Date(endDate) : new Date(endDate || new Date());
+  if (isNaN(chartEndDate.getTime())) {
+    chartEndDate.setTime(new Date().getTime());
+  }
+  chartEndDate.setHours(23, 59, 59, 999);
+
+  for (let i = chartDays - 1; i >= 0; i--) {
+    const date = new Date(chartEndDate);
+    date.setDate(date.getDate() - i);
+    date.setHours(0, 0, 0, 0);
+
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    const dayTotal = (donations || [])
+      .filter(d => (d.Status || '').toLowerCase() === 'approved')
+      .filter(d => {
+        const donationDate = d.TransferDate ? new Date(d.TransferDate) : new Date(d.Timestamp);
+        return donationDate >= date && donationDate < nextDate;
+      })
+      .reduce((sum, d) => sum + (parseFloat(d.Amount) || 0), 0);
+
+    labels.push(thaiDays[date.getDay()]);
+    data.push(dayTotal);
+  }
+
+  return { labels, data };
 }
 
 function getValidatedReportImageBlob(blob, label) {
@@ -2961,24 +3043,30 @@ function getValidatedReportImageBlob(blob, label) {
 
 function createFallbackDonationChartBlob(data) {
   try {
+    const reportChartData = data && data.chartData;
+    if (!reportChartData || !Array.isArray(reportChartData.labels) || !Array.isArray(reportChartData.data)) {
+      return null;
+    }
+
     const chartData = Charts.newDataTable()
       .addColumn(Charts.ColumnType.STRING, 'รายการ')
-      .addColumn(Charts.ColumnType.NUMBER, 'จำนวนเงิน')
-      .addRow(['ยอดรวมโครงการ', parseReportNumber(data.projectTotalAmount)])
-      .addRow(['เป้าหมาย', parseReportNumber(data.targetAmount)])
-      .build();
-    
-    const chart = Charts.newBarChart()
-      .setDataTable(chartData)
-      .setDimensions(640, 240)
+      .addColumn(Charts.ColumnType.NUMBER, 'จำนวนเงิน');
+
+    reportChartData.labels.forEach((label, index) => {
+      chartData.addRow([String(label || ''), parseReportNumber(reportChartData.data[index])]);
+    });
+
+    const chart = Charts.newLineChart()
+      .setDataTable(chartData.build())
+      .setDimensions(640, 300)
       .setLegendPosition(Charts.Position.NONE)
-      .setTitle('Donation Summary')
+      .setTitle('ยอดบริจาคในช่วง 7 วัน')
       .build();
     
     const blob = chart.getAs('image/png').setName('donation-chart.png');
-    return getValidatedReportImageBlob(blob, 'CHART_IMAGE_FALLBACK');
+    return getValidatedReportImageBlob(blob, 'CHART_IMAGE_REPORT');
   } catch (e) {
-    console.error('[Report Gen] Failed to create fallback chart:', e);
+    console.error('[Report Gen] Failed to create report chart:', e);
     return null;
   }
 }
@@ -3023,7 +3111,7 @@ function appendExecutiveSummaryPage(body, data, images) {
   try {
     chartHeading.setKeepWithNext(true);
   } catch (e) { /* best-effort */ }
-  appendReportImage(body, images.chart, 450, 320, 'ข้อมูลยังไม่เพียงพอสำหรับสร้างกราฟ', 13);
+  appendReportImage(body, images.chart, 450, 320, 'ไม่มีข้อมูลการบริจาคในช่วง 7 วัน', 13);
   
   const summaryHeading = appendReportHeading(body, 'Executive Summary');
   try {
@@ -3902,7 +3990,7 @@ function getBlobFromBase64(base64Data, fileName) {
  * ค้นหาและดึง Blob ของโลโก้
  */
 function getLogoBlob(settings) {
-  const url = settings.ProjectCoverUrl;
+  const url = String(settings.ProjectCoverUrl || '').trim();
   if (!url) return null;
   
   try {
@@ -3910,6 +3998,12 @@ function getLogoBlob(settings) {
     if (url.indexOf('drive.google.com') !== -1) {
       const match = url.match(/id=([^&]+)/) || url.match(/\/file\/d\/([^/]+)/);
       if (match && match[1]) {
+        try {
+          const driveFile = DriveApp.getFileById(match[1]);
+          return driveFile.getBlob();
+        } catch (driveError) {
+          console.warn('Google Drive image access failed, trying download URL:', driveError.message);
+        }
         cleanUrl = 'https://docs.google.com/uc?export=download&id=' + match[1];
       }
     }
@@ -3918,6 +4012,7 @@ function getLogoBlob(settings) {
     if (resp.getResponseCode() === 200) {
       return resp.getBlob();
     }
+    console.warn('Project cover image fetch failed: HTTP ' + resp.getResponseCode());
   } catch (e) {
     console.error('Error fetching logo image:', e);
   }
