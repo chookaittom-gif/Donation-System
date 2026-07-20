@@ -86,10 +86,6 @@
                     <span class="project-name">โครงการบริจาค</span>
                 </a>
 
-                <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('active')">
-                    ☰
-                </button>
-
                 <ul class="nav-links">
                     <!-- <li><a href="#" class="active">หน้าหลัก</a></li> -->
                     <!-- <li><a href="#about">เกี่ยวกับโครงการ</a></li> -->
@@ -927,9 +923,15 @@
                                     <h3 class="settings-title">ภาพปกโครงการ</h3>
                                     <p class="text-muted mb-md" style="font-size: 0.85rem;">ขนาดแนะนำ: 1200 x 630 px</p>
                                     <div class="form-group">
-                                        <label class="form-label">URL รูปภาพ</label>
-                                        <input type="url" class="form-control" name="ProjectCoverUrl"
-                                            placeholder="https://...">
+                                        <label class="form-label" for="projectCoverFile">อัปโหลดภาพปก</label>
+                                        <input type="hidden" name="ProjectCoverUrl">
+                                        <input type="file" id="projectCoverFile" accept="image/jpeg,image/png,image/webp" style="display: none;">
+                                        <label for="projectCoverFile" class="btn btn-secondary" style="display: inline-flex; align-items: center; min-height: 44px; cursor: pointer;">
+                                            🖼️ เลือกภาพจากเครื่อง
+                                        </label>
+                                        <div id="projectCoverUploadName" class="form-hint" style="margin-top: 8px;">ยังไม่ได้เลือกภาพใหม่</div>
+                                        <img id="projectCoverPreview" src="" alt="ตัวอย่างภาพปกโครงการ" style="display: none; width: 100%; max-width: 420px; max-height: 220px; object-fit: contain; margin-top: 12px; border: 1px solid #d8dee9; border-radius: 8px; background: #f8fafc;">
+                                        <p id="projectCoverUploadStatus" class="form-hint" style="margin-top: 8px;">ระบบจะบีบอัดภาพเป็น JPEG ไม่เกินประมาณ 1 MB ก่อนอัปโหลด Google Drive</p>
                                     </div>
 
                                     <div class="form-group">
@@ -1316,6 +1318,10 @@
                     title: document.querySelector('.project-name').textContent,
                     text: 'ร่วมบริจาคเพื่อน้องๆ',
                     url: projectUrl
+                }).catch(error => {
+                    if (error?.name !== 'AbortError') {
+                        showToast('ไม่สามารถแชร์โครงการได้', 'error');
+                    }
                 });
             } else {
                 copyToClipboard(projectUrl);
