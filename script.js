@@ -92,6 +92,14 @@
             });
         }
 
+        // Navigation toggle (mobile)
+        const navToggle = document.querySelector('.nav-toggle');
+        if (navToggle) {
+            navToggle.addEventListener('click', () => {
+                document.querySelector('.nav-links').classList.toggle('active');
+            });
+        }
+
         // Sticky Header CTA scroll handler (UX Optimization)
         const navCta = document.querySelector('.public-nav .nav-cta');
         if (navCta) {
@@ -363,6 +371,7 @@
     async function loadDashboardData() {
         try {
             showLoading('กำลังโหลดข้อมูล Dashboard...');
+            setChartState('loading');
 
             // เรียก API เดียวแทน 4 APIs (เร็วขึ้น 60-75%)
             let data = null;
@@ -388,6 +397,7 @@
         } catch (error) {
             console.error('loadDashboardData error:', error);
             showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+            setChartState('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูลกราฟ');
         } finally {
             hideLoading();
         }
@@ -496,7 +506,7 @@
 
         // Stats
         document.querySelectorAll('.total-amount').forEach(el => {
-            el.textContent = formatCurrency(stats.projectTotalAmount || stats.totalAmount || 0);
+            el.textContent = formatCurrency(stats.totalAmount || 0);
         });
 
         document.querySelectorAll('.target-amount').forEach(el => {
@@ -598,7 +608,7 @@
             if (bannerEl) {
                 bannerEl.className = 'status-banner post-event';
                 bannerEl.innerHTML = '🕒 กิจกรรมสิ้นสุดแล้ว แต่ยังเปิดรับการสนับสนุนเพิ่มเติม';
-                bannerEl.style.display = 'none';
+                bannerEl.style.display = '';
             }
             
             // Set up form fields for POST_EVENT phase
@@ -635,7 +645,7 @@
         if (noticeEl) {
             if (status === 'POST_EVENT') {
                 noticeEl.className = 'status-banner post-event';
-                noticeEl.innerHTML = '🕒 กิจกรรมหลักสิ้นสุดแล้ว · ยังเปิดรับการสนับสนุนเพิ่มเติม';
+                noticeEl.innerHTML = '🕒 กิจกรรมหลักสิ้นสุดแล้ว ท่านยังสามารถร่วมบริจาคสนับสนุนเพิ่มเติมได้ผ่านช่องทางนี้';
                 noticeEl.style.display = 'block';
             } else {
                 noticeEl.style.display = 'none';
@@ -814,7 +824,7 @@
     }
 
     function renderDashboard(stats, chartData, recentDonations, topDonors) {
-        document.querySelector('.stat-total-amount').textContent = '฿' + formatNumber(stats.projectTotalAmount || stats.totalAmount || 0);
+        document.querySelector('.stat-total-amount').textContent = '฿' + formatNumber(stats.totalAmount);
         document.querySelector('.stat-total-donors').textContent = stats.totalDonors + ' คน';
         document.querySelector('.stat-pending-count').textContent = stats.pendingCount + ' รายการ';
         document.querySelector('.stat-average-amount').textContent = '฿' + formatNumber(stats.averageAmount);
@@ -859,14 +869,53 @@
         }
     }
 
+    function setChartState(state, errorMessage) {
+        const canvas = document.getElementById('donationChart');
+        const loadingEl = document.getElementById('chartLoadingState');
+        const emptyEl = document.getElementById('chartEmptyState');
+        const errorEl = document.getElementById('chartErrorState');
+        const errorMsgEl = document.getElementById('chartErrorMessage');
+
+        if (canvas) canvas.style.display = (state === 'data') ? 'block' : 'none';
+        if (loadingEl) loadingEl.classList.toggle('d-none', state !== 'loading');
+        if (emptyEl) emptyEl.classList.toggle('d-none', state !== 'empty');
+        if (errorEl) errorEl.classList.toggle('d-none', state !== 'error');
+        if (errorMsgEl && errorMessage) errorMsgEl.textContent = errorMessage;
+    }
+
     function renderChart(chartData) {
         const ctx = document.getElementById('donationChart');
         if (!ctx) return;
 
-        // Destroy existing chart
-        if (AppState.chart) {
-            AppState.chart.destroy();
+        // Destroy existing chart instance safely
+        if (typeof Chart !== 'undefined' && Chart.getChart && Chart.getChart(ctx)) {
+            try {
+                Chart.getChart(ctx).destroy();
+            } catch (e) {
+                console.warn('Error destroying chart via Chart.getChart:', e);
+            }
         }
+        if (AppState.chart) {
+            try {
+                AppState.chart.destroy();
+            } catch (e) {
+                console.warn('Error destroying AppState.chart:', e);
+            }
+            AppState.chart = null;
+        }
+
+        const hasData = chartData && (
+            chartData.hasData !== undefined
+                ? chartData.hasData
+                : (Array.isArray(chartData.data) && chartData.data.some(v => parseFloat(v) > 0))
+        );
+
+        if (!hasData) {
+            setChartState('empty');
+            return;
+        }
+
+        setChartState('data');
 
         AppState.chart = new Chart(ctx, {
             type: 'line',
@@ -1146,7 +1195,6 @@
         setInputValue('ProjectCoverUrl', settings.ProjectCoverUrl || '');
         setInputValue('SidebarTitle', settings.SidebarTitle || '');
         setInputValue('TargetAmount', settings.TargetAmount || '');
-        setInputValue('OpeningBalance', settings.OpeningBalance || '');
         setInputValue('StartDate', formatDateForInput(settings.StartDate));
         setInputValue('EndDate', formatDateForInput(settings.EndDate));
         setInputValue('DriveFolderId', settings.DriveFolderId || '');
@@ -1183,7 +1231,6 @@
             ProjectCoverUrl: getInputValue('ProjectCoverUrl'),
             SidebarTitle: getInputValue('SidebarTitle'),
             TargetAmount: getInputValue('TargetAmount'),
-            OpeningBalance: getInputValue('OpeningBalance'),
             StartDate: getInputValue('StartDate'),
             EndDate: getInputValue('EndDate'),
             DriveFolderId: getInputValue('DriveFolderId'),
@@ -2229,27 +2276,6 @@
     window.applyFilters = applyFilters;
 
     // ===== EXPORT FUNCTION =====
-    function exportReportChartImage(chart) {
-        if (!chart || !chart.canvas) return null;
-
-        const canvas = chart.canvas;
-        const originalWidth = canvas.width;
-        const originalHeight = canvas.height;
-        const originalStyleWidth = canvas.style.width;
-        const originalStyleHeight = canvas.style.height;
-
-        try {
-            chart.resize(1200, 800);
-            return chart.toBase64Image('image/png', 1);
-        } finally {
-            canvas.style.width = originalStyleWidth;
-            canvas.style.height = originalStyleHeight;
-            canvas.width = originalWidth;
-            canvas.height = originalHeight;
-            chart.resize();
-        }
-    }
-
     async function exportDonations() {
         const btn = document.querySelector('button[onclick="exportDonations()"]') || (event && event.target);
         const { value: formValues } = await Swal.fire({
@@ -2404,7 +2430,7 @@
             let chartImageBase64 = null;
             if (AppState.chart) {
                 try {
-                    chartImageBase64 = exportReportChartImage(AppState.chart);
+                    chartImageBase64 = AppState.chart.toBase64Image();
                 } catch (e) {
                     console.error('Failed to export chart image base64:', e);
                 }
@@ -2752,32 +2778,6 @@
         }
         
         openModal('userModal');
-        setupUserPasswordToggle();
-    }
-
-    function setupUserPasswordToggle() {
-        const passwordInput = document.getElementById('userFormPassword');
-        const toggleButton = document.getElementById('userFormPasswordToggle');
-        if (!passwordInput || !toggleButton) return;
-
-        const eyeIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-        const eyeOffIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
-        const updateToggleState = (isVisible) => {
-            passwordInput.type = isVisible ? 'text' : 'password';
-            toggleButton.innerHTML = isVisible ? eyeOffIcon : eyeIcon;
-            toggleButton.setAttribute('aria-label', isVisible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
-            toggleButton.setAttribute('aria-pressed', String(isVisible));
-        };
-
-        if (toggleButton.dataset.bound !== 'true') {
-            toggleButton.addEventListener('click', () => {
-                updateToggleState(passwordInput.type === 'password');
-                passwordInput.focus();
-            });
-            toggleButton.dataset.bound = 'true';
-        }
-
-        updateToggleState(false);
     }
 
     let isSavingUser = false;

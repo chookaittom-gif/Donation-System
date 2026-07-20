@@ -86,6 +86,10 @@
                     <span class="project-name">โครงการบริจาค</span>
                 </a>
 
+                <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('active')">
+                    ☰
+                </button>
+
                 <ul class="nav-links">
                     <!-- <li><a href="#" class="active">หน้าหลัก</a></li> -->
                     <!-- <li><a href="#about">เกี่ยวกับโครงการ</a></li> -->
@@ -1312,10 +1316,6 @@
                     title: document.querySelector('.project-name').textContent,
                     text: 'ร่วมบริจาคเพื่อน้องๆ',
                     url: projectUrl
-                }).catch(error => {
-                    if (error?.name !== 'AbortError') {
-                        showToast('ไม่สามารถแชร์โครงการได้', 'error');
-                    }
                 });
             } else {
                 copyToClipboard(projectUrl);
