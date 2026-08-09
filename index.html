@@ -86,6 +86,10 @@
                     <span class="project-name">โครงการบริจาค</span>
                 </a>
 
+                <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('active')">
+                    ☰
+                </button>
+
                 <ul class="nav-links">
                     <!-- <li><a href="#" class="active">หน้าหลัก</a></li> -->
                     <!-- <li><a href="#about">เกี่ยวกับโครงการ</a></li> -->
@@ -120,7 +124,10 @@
                         </div>
                     </div>
                     <div class="hero-image">
-                        <img id="projectCoverImage" src="" alt="รูปปกโครงการ" style="width: 100%; border-radius: 16px;">
+                        <div class="cover-frame hero-cover-frame" id="heroCoverFrame">
+                            <div class="cover-blur-bg" id="heroCoverBlur"></div>
+                            <img id="projectCoverImage" src="" alt="รูปปกโครงการ">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -133,7 +140,7 @@
                     <div class="stat-card" style="border: none; padding: 16px;">
                         <div class="stat-icon">💰</div>
                         <div>
-                            <div class="stat-label">ยอดเงินโครงการปัจจุบัน</div>
+                            <div class="stat-label">ยอดเงินบริจาคปัจจุบัน</div>
                             <div class="stat-value total-amount">฿0</div>
                             <div class="stat-change positive">↑ +15% จากเมื่อวาน</div>
                         </div>
@@ -142,7 +149,7 @@
                         <div class="stat-icon">🎯</div>
                         <div>
                             <div class="stat-label">เป้าหมายยอดเงิน</div>
-                            <div class="stat-value target-amount">฿150,000</div>
+                            <div class="stat-value target-amount">฿100,000</div>
                             <div class="stat-change">ต้องการอีก <span class="remaining-amount">฿0</span></div>
                         </div>
                     </div>
@@ -236,7 +243,7 @@
                         <!-- Form -->
                         <div class="card">
                             <form id="donationForm">
-                                <div id="donationFormStatusNotice" class="status-banner post-event" style="display: none; margin: 0 0 16px 0; width: 100%; font-size: 0.85rem; padding: 8px 12px;"></div>
+                                <div id="donationFormStatusNotice" class="status-banner post-event" style="display: none; margin: 0 0 20px 0; width: 100%; font-size: 0.95rem; padding: 12px;"></div>
                                 <!-- File Upload -->
                                 <div class="form-group">
                                     <div class="form-section-title">
@@ -413,9 +420,12 @@
 
                             <!-- Help Image -->
                             <div class="card mt-lg text-center">
-                                <img id="sidebarCoverImage"
-                                    src="https://images.unsplash.com/photo-1509099836639-18ba1795216d?w=400&h=250&fit=crop"
-                                    alt="Project Cover" style="width: 100%; border-radius: 12px; margin-bottom: 16px;">
+                                <div class="cover-frame sidebar-cover-frame" id="sidebarCoverFrame">
+                                    <div class="cover-blur-bg" id="sidebarCoverBlur"></div>
+                                    <img id="sidebarCoverImage"
+                                        src="https://images.unsplash.com/photo-1509099836639-18ba1795216d?w=400&h=250&fit=crop"
+                                        alt="Project Cover">
+                                </div>
                                 <h4 id="sidebarTitle" style="color: var(--primary-color);">Your Gift Matters</h4>
                                 <p id="sidebarDescription" class="text-muted" style="font-size: 0.9rem;">ของขวัญชิ้นเล็ก
                                     สร้างรอยยิ้มที่ยิ่งใหญ่
@@ -545,7 +555,7 @@
                             <div class="d-flex justify-between">
                                 <div class="stat-icon">💰</div>
                             </div>
-                            <div class="stat-label">ยอดรวมเงินโครงการทั้งหมด</div>
+                            <div class="stat-label">ยอดรวมเงินบริจาคทั้งหมด</div>
                             <div class="stat-value stat-total-amount">฿0</div>
                             <div class="stat-change positive stat-growth">↑ +0% จากเดือนก่อน</div>
                         </div>
@@ -811,16 +821,9 @@
                                     <div class="form-group">
                                         <label class="form-label">จำนวนเงินเป้าหมาย (บาท)</label>
                                         <input type="number" class="form-control" name="TargetAmount"
-                                            placeholder="150,000">
+                                            placeholder="500,000">
                                         <p class="form-hint">หากไม่ระบุเป้าหมาย ระบบจะแสดงเป็น "รับบริจาคไม่จำกัดจำนวน"
                                         </p>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label class="form-label">ยอดยกมา (บาท)</label>
-                                        <input type="number" class="form-control" name="OpeningBalance"
-                                            placeholder="120,000" min="0" step="0.01">
-                                        <p class="form-hint">ยอดเงินที่มีอยู่ก่อนเริ่มบันทึกรายการบริจาคในระบบ และจะรวมในยอดโครงการ</p>
                                     </div>
                                 </div>
 
@@ -930,7 +933,10 @@
                                             🖼️ เลือกภาพจากเครื่อง
                                         </label>
                                         <div id="projectCoverUploadName" class="form-hint" style="margin-top: 8px;">ยังไม่ได้เลือกภาพใหม่</div>
-                                        <img id="projectCoverPreview" src="" alt="ตัวอย่างภาพปกโครงการ" style="display: none; width: 100%; max-width: 420px; max-height: 220px; object-fit: contain; margin-top: 12px; border: 1px solid #d8dee9; border-radius: 8px; background: #f8fafc;">
+                                        <div class="cover-frame preview-cover-frame" id="projectCoverPreviewFrame" style="display: none;">
+                                            <div class="cover-blur-bg" id="projectCoverPreviewBlur"></div>
+                                            <img id="projectCoverPreview" src="" alt="ตัวอย่างภาพปกโครงการ">
+                                        </div>
                                         <p id="projectCoverUploadStatus" class="form-hint" style="margin-top: 8px;">ระบบจะบีบอัดภาพเป็น JPEG ไม่เกินประมาณ 1 MB ก่อนอัปโหลด Google Drive</p>
                                     </div>
 
@@ -1269,10 +1275,7 @@
                 </div>
                 <div class="form-group mb-md">
                     <label class="form-label">รหัสผ่าน (Password)</label>
-                    <div class="password-input-wrap">
-                        <input type="password" class="form-control" name="Password" id="userFormPassword" required placeholder="กรอกรหัสผ่าน">
-                        <button type="button" class="password-toggle" id="userFormPasswordToggle" aria-label="แสดงรหัสผ่าน" aria-pressed="false"></button>
-                    </div>
+                    <input type="password" class="form-control" name="Password" id="userFormPassword" required placeholder="กรอกรหัสผ่าน">
                 </div>
                 <div class="form-group mb-md">
                     <label class="form-label">บทบาท (Role)</label>
@@ -1318,10 +1321,6 @@
                     title: document.querySelector('.project-name').textContent,
                     text: 'ร่วมบริจาคเพื่อน้องๆ',
                     url: projectUrl
-                }).catch(error => {
-                    if (error?.name !== 'AbortError') {
-                        showToast('ไม่สามารถแชร์โครงการได้', 'error');
-                    }
                 });
             } else {
                 copyToClipboard(projectUrl);

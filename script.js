@@ -19,8 +19,6 @@
         currentVisibleDonors: 20, // จำนวนปัจจุบันที่แสดงใน Modal
         editingId: null,
         uploadedFile: null,
-        projectCoverFile: null,
-        projectCoverPreviewUrl: null,
         chart: null
     };
 
@@ -91,6 +89,14 @@
                 if (AppState.currentVisibleDonors >= totalDonors) {
                     btnLoadMore.style.display = 'none';
                 }
+            });
+        }
+
+        // Navigation toggle (mobile)
+        const navToggle = document.querySelector('.nav-toggle');
+        if (navToggle) {
+            navToggle.addEventListener('click', () => {
+                document.querySelector('.nav-links').classList.toggle('active');
             });
         }
 
@@ -436,23 +442,13 @@
     }
 
     // ===== RENDER FUNCTIONS =====
-    function getProjectCoverDisplayUrl(url) {
-        const text = String(url || '').trim();
-        if (text.indexOf('drive.google.com') === -1 && text.indexOf('docs.google.com') === -1) return text;
-        const match = text.match(/[?&]id=([^&]+)/) || text.match(/\/file\/d\/([^/]+)/);
-        if (!match) return text;
-
-        const fileId = match[1];
-        return 'https://lh3.googleusercontent.com/d/' + fileId;
-    }
-
     function renderPublicPage(data) {
         const project = data.project || {};
         const stats = data.stats || {};
 
         const projectName = project.name || 'โครงการบริจาค';
         const projectDescription = project.description || '';
-        const projectCoverUrl = getProjectCoverDisplayUrl(project.coverUrl || '');
+        const projectCoverUrl = project.coverUrl || '';
         const projectTags = project.tags || '';
 
         document.querySelectorAll('.project-name').forEach(el => el.textContent = projectName);
@@ -471,17 +467,23 @@
         }
 
         const coverImage = document.getElementById('projectCoverImage');
+        const heroBlur = document.getElementById('heroCoverBlur');
         if (coverImage) {
             coverImage.dataset.coverToken = projectCoverUrl;
             coverImage.onerror = () => {
-                if (coverImage.dataset.coverToken === projectCoverUrl) coverImage.style.display = 'none';
+                if (coverImage.dataset.coverToken === projectCoverUrl) {
+                    coverImage.style.display = 'none';
+                    if (heroBlur) heroBlur.style.backgroundImage = '';
+                }
             };
             if (projectCoverUrl) {
                 coverImage.src = projectCoverUrl;
                 coverImage.style.display = '';
+                if (heroBlur) heroBlur.style.backgroundImage = `url("${projectCoverUrl}")`;
             } else {
                 coverImage.removeAttribute('src');
                 coverImage.style.display = 'none';
+                if (heroBlur) heroBlur.style.backgroundImage = '';
             }
         }
 
@@ -492,17 +494,23 @@
         }
 
         const sidebarImage = document.getElementById('sidebarCoverImage');
+        const sidebarBlur = document.getElementById('sidebarCoverBlur');
         if (sidebarImage) {
             sidebarImage.dataset.coverToken = projectCoverUrl;
             sidebarImage.onerror = () => {
-                if (sidebarImage.dataset.coverToken === projectCoverUrl) sidebarImage.style.display = 'none';
+                if (sidebarImage.dataset.coverToken === projectCoverUrl) {
+                    sidebarImage.style.display = 'none';
+                    if (sidebarBlur) sidebarBlur.style.backgroundImage = '';
+                }
             };
             if (projectCoverUrl) {
                 sidebarImage.src = projectCoverUrl;
                 sidebarImage.style.display = '';
+                if (sidebarBlur) sidebarBlur.style.backgroundImage = `url("${projectCoverUrl}")`;
             } else {
                 sidebarImage.removeAttribute('src');
                 sidebarImage.style.display = 'none';
+                if (sidebarBlur) sidebarBlur.style.backgroundImage = '';
             }
         }
 
@@ -518,7 +526,7 @@
 
         // Stats
         document.querySelectorAll('.total-amount').forEach(el => {
-            el.textContent = formatCurrency(stats.projectTotalAmount || stats.totalAmount || 0);
+            el.textContent = formatCurrency(stats.totalAmount || 0);
         });
 
         document.querySelectorAll('.target-amount').forEach(el => {
@@ -620,7 +628,7 @@
             if (bannerEl) {
                 bannerEl.className = 'status-banner post-event';
                 bannerEl.innerHTML = '🕒 กิจกรรมสิ้นสุดแล้ว แต่ยังเปิดรับการสนับสนุนเพิ่มเติม';
-                bannerEl.style.display = 'none';
+                bannerEl.style.display = '';
             }
             
             // Set up form fields for POST_EVENT phase
@@ -657,7 +665,7 @@
         if (noticeEl) {
             if (status === 'POST_EVENT') {
                 noticeEl.className = 'status-banner post-event';
-                noticeEl.innerHTML = '🕒 กิจกรรมหลักสิ้นสุดแล้ว · ยังเปิดรับการสนับสนุนเพิ่มเติม';
+                noticeEl.innerHTML = '🕒 กิจกรรมหลักสิ้นสุดแล้ว ท่านยังสามารถร่วมบริจาคสนับสนุนเพิ่มเติมได้ผ่านช่องทางนี้';
                 noticeEl.style.display = 'block';
             } else {
                 noticeEl.style.display = 'none';
@@ -836,7 +844,7 @@
     }
 
     function renderDashboard(stats, chartData, recentDonations, topDonors) {
-        document.querySelector('.stat-total-amount').textContent = '฿' + formatNumber(stats.projectTotalAmount || stats.totalAmount || 0);
+        document.querySelector('.stat-total-amount').textContent = '฿' + formatNumber(stats.totalAmount);
         document.querySelector('.stat-total-donors').textContent = stats.totalDonors + ' คน';
         document.querySelector('.stat-pending-count').textContent = stats.pendingCount + ' รายการ';
         document.querySelector('.stat-average-amount').textContent = '฿' + formatNumber(stats.averageAmount);
@@ -1177,12 +1185,12 @@
         const projectCoverStatus = document.getElementById('projectCoverUploadStatus');
         if (projectCoverStatus) {
             projectCoverStatus.textContent = settings.ProjectCoverUrl
-                ? 'ภาพปกพร้อมใช้งานในหน้าโครงการและรายงาน'
-                : 'ระบบจะบีบอัดภาพเป็น JPEG ไม่เกินประมาณ 1 MB ก่อนอัปโหลด Google Drive';
+                ? `ลิงก์ภาพปัจจุบัน: ${settings.ProjectCoverUrl}`
+                : 'เลือกไฟล์เพื่อเปลี่ยนภาพปกใหม่';
         }
+
         setInputValue('SidebarTitle', settings.SidebarTitle || '');
         setInputValue('TargetAmount', settings.TargetAmount || '');
-        setInputValue('OpeningBalance', settings.OpeningBalance || '');
         setInputValue('StartDate', formatDateForInput(settings.StartDate));
         setInputValue('EndDate', formatDateForInput(settings.EndDate));
         setInputValue('DriveFolderId', settings.DriveFolderId || '');
@@ -1201,46 +1209,20 @@
         setCheckboxValue('AutoUpdateEventStatus', toBoolean(settings.AutoUpdateEventStatus));
     }
 
-    function collectSettingsFormData() {
-        const getInputValue = (name) => {
-            const el = document.querySelector(`#settingsForm [name="${name}"]`);
-            return el ? el.value : '';
-        };
-        const getCheckboxValue = (name) => {
-            const el = document.querySelector(`#settingsForm [name="${name}"]`);
-            return el ? (el.checked ? 'true' : 'false') : 'false';
-        };
+    function getProjectCoverDisplayUrl(url) {
+        const text = String(url || '').trim();
+        if (text.indexOf('drive.google.com') === -1 && text.indexOf('docs.google.com') === -1) return text;
+        const match = text.match(/[?&]id=([^&]+)/) || text.match(/\/file\/d\/([^/]+)/);
+        if (!match) return text;
 
-        return {
-            ProjectName: getInputValue('ProjectName'),
-            ProjectDescription: getInputValue('ProjectDescription'),
-            ProjectType: getInputValue('ProjectType'),
-            Tags: getInputValue('Tags'),
-            ProjectCoverUrl: getInputValue('ProjectCoverUrl'),
-            SidebarTitle: getInputValue('SidebarTitle'),
-            TargetAmount: getInputValue('TargetAmount'),
-            OpeningBalance: getInputValue('OpeningBalance'),
-            StartDate: getInputValue('StartDate'),
-            EndDate: getInputValue('EndDate'),
-            DriveFolderId: getInputValue('DriveFolderId'),
-            AdminPassword: getInputValue('AdminPassword'),
-            CacheTTL: getInputValue('CacheTTL'),
-            AutoApproveEnabled: getCheckboxValue('AutoApproveEnabled'),
-            AutoApproveWithSlip: getCheckboxValue('AutoApproveWithSlip'),
-            AutoApproveReturning: getCheckboxValue('AutoApproveReturning'),
-            AutoApproveAll: getCheckboxValue('AutoApproveAll'),
-            AutoApproveAmount: getInputValue('AutoApproveAmount'),
-            ContactPerson: getInputValue('ContactPerson'),
-            ContactPhone: getInputValue('ContactPhone'),
-            ContactEmail: getInputValue('ContactEmail'),
-            ContactAttendanceType: getInputValue('ContactAttendanceType'),
-            EventStatus: getInputValue('EventStatus'),
-            AutoUpdateEventStatus: getCheckboxValue('AutoUpdateEventStatus')
-        };
+        const fileId = match[1];
+        return 'https://lh3.googleusercontent.com/d/' + fileId;
     }
 
     function renderProjectCoverPreview(url) {
         const preview = document.getElementById('projectCoverPreview');
+        const previewFrame = document.getElementById('projectCoverPreviewFrame');
+        const previewBlur = document.getElementById('projectCoverPreviewBlur');
         const name = document.getElementById('projectCoverUploadName');
         if (!preview) return;
 
@@ -1248,17 +1230,23 @@
         preview.dataset.previewToken = previewToken;
         preview.onerror = () => {
             if (preview.dataset.previewToken === previewToken) {
+                if (previewFrame) previewFrame.style.display = 'none';
                 preview.style.display = 'none';
+                if (previewBlur) previewBlur.style.backgroundImage = '';
             }
         };
 
         if (url) {
             preview.src = url;
             preview.style.display = 'block';
+            if (previewFrame) previewFrame.style.display = 'flex';
+            if (previewBlur) previewBlur.style.backgroundImage = `url("${url}")`;
             if (name && !AppState.projectCoverFile) name.textContent = 'ภาพปกปัจจุบัน';
         } else {
             preview.removeAttribute('src');
             preview.style.display = 'none';
+            if (previewFrame) previewFrame.style.display = 'none';
+            if (previewBlur) previewBlur.style.backgroundImage = '';
             if (name && !AppState.projectCoverFile) name.textContent = 'ยังไม่ได้เลือกภาพใหม่';
         }
     }
@@ -1307,9 +1295,8 @@
             image.src = dataUrl;
         });
 
-        const maxWidth = 1200;
-        const maxHeight = 630;
-        const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight, 1);
+        const maxDimension = 1200;
+        const scale = Math.min(maxDimension / Math.max(image.naturalWidth, image.naturalHeight), 1);
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
         canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -1332,6 +1319,43 @@
         }
 
         throw new Error('ไม่สามารถบีบอัดภาพปกได้');
+    }
+
+    function collectSettingsFormData() {
+        const getInputValue = (name) => {
+            const el = document.querySelector(`#settingsForm [name="${name}"]`);
+            return el ? el.value : '';
+        };
+        const getCheckboxValue = (name) => {
+            const el = document.querySelector(`#settingsForm [name="${name}"]`);
+            return el ? (el.checked ? 'true' : 'false') : 'false';
+        };
+
+        return {
+            ProjectName: getInputValue('ProjectName'),
+            ProjectDescription: getInputValue('ProjectDescription'),
+            ProjectType: getInputValue('ProjectType'),
+            Tags: getInputValue('Tags'),
+            ProjectCoverUrl: getInputValue('ProjectCoverUrl'),
+            SidebarTitle: getInputValue('SidebarTitle'),
+            TargetAmount: getInputValue('TargetAmount'),
+            StartDate: getInputValue('StartDate'),
+            EndDate: getInputValue('EndDate'),
+            DriveFolderId: getInputValue('DriveFolderId'),
+            AdminPassword: getInputValue('AdminPassword'),
+            CacheTTL: getInputValue('CacheTTL'),
+            AutoApproveEnabled: getCheckboxValue('AutoApproveEnabled'),
+            AutoApproveWithSlip: getCheckboxValue('AutoApproveWithSlip'),
+            AutoApproveReturning: getCheckboxValue('AutoApproveReturning'),
+            AutoApproveAll: getCheckboxValue('AutoApproveAll'),
+            AutoApproveAmount: getInputValue('AutoApproveAmount'),
+            ContactPerson: getInputValue('ContactPerson'),
+            ContactPhone: getInputValue('ContactPhone'),
+            ContactEmail: getInputValue('ContactEmail'),
+            ContactAttendanceType: getInputValue('ContactAttendanceType'),
+            EventStatus: getInputValue('EventStatus'),
+            AutoUpdateEventStatus: getCheckboxValue('AutoUpdateEventStatus')
+        };
     }
 
     // ===== NAVIGATION =====
@@ -2387,27 +2411,6 @@
     window.applyFilters = applyFilters;
 
     // ===== EXPORT FUNCTION =====
-    function exportReportChartImage(chart) {
-        if (!chart || !chart.canvas) return null;
-
-        const canvas = chart.canvas;
-        const originalWidth = canvas.width;
-        const originalHeight = canvas.height;
-        const originalStyleWidth = canvas.style.width;
-        const originalStyleHeight = canvas.style.height;
-
-        try {
-            chart.resize(1200, 800);
-            return chart.toBase64Image('image/png', 1);
-        } finally {
-            canvas.style.width = originalStyleWidth;
-            canvas.style.height = originalStyleHeight;
-            canvas.width = originalWidth;
-            canvas.height = originalHeight;
-            chart.resize();
-        }
-    }
-
     async function exportDonations() {
         const btn = document.querySelector('button[onclick="exportDonations()"]') || (event && event.target);
         const { value: formValues } = await Swal.fire({
@@ -2558,10 +2561,21 @@
         showLoading('กำลังส่งออกรายงาน PDF...');
 
         try {
+            // ดึงรูปภาพ Trend Chart จาก Chart.js
+            let chartImageBase64 = null;
+            if (AppState.chart) {
+                try {
+                    chartImageBase64 = AppState.chart.toBase64Image();
+                } catch (e) {
+                    console.error('Failed to export chart image base64:', e);
+                }
+            }
+
             const response = await callApi('generateDonationReport', {
                 startDate: formValues.startDate,
                 endDate: formValues.endDate,
-                note: formValues.note
+                note: formValues.note,
+                chartImageBase64: chartImageBase64
             });
 
             if (response && response.success) {
@@ -2899,32 +2913,6 @@
         }
         
         openModal('userModal');
-        setupUserPasswordToggle();
-    }
-
-    function setupUserPasswordToggle() {
-        const passwordInput = document.getElementById('userFormPassword');
-        const toggleButton = document.getElementById('userFormPasswordToggle');
-        if (!passwordInput || !toggleButton) return;
-
-        const eyeIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-        const eyeOffIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
-        const updateToggleState = (isVisible) => {
-            passwordInput.type = isVisible ? 'text' : 'password';
-            toggleButton.innerHTML = isVisible ? eyeOffIcon : eyeIcon;
-            toggleButton.setAttribute('aria-label', isVisible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
-            toggleButton.setAttribute('aria-pressed', String(isVisible));
-        };
-
-        if (toggleButton.dataset.bound !== 'true') {
-            toggleButton.addEventListener('click', () => {
-                updateToggleState(passwordInput.type === 'password');
-                passwordInput.focus();
-            });
-            toggleButton.dataset.bound = 'true';
-        }
-
-        updateToggleState(false);
     }
 
     let isSavingUser = false;

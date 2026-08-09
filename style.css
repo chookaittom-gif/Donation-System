@@ -2869,3 +2869,65 @@ button, .btn, .bank-option, .nav-btn, .modal-actions button, input[type="button"
   font-style: italic;
   margin-top: 2px;
 }
+
+/* ===== COVER FRAME (Portrait & Landscape Support) ===== */
+.cover-frame {
+  position: relative;
+  width: 100%;
+  border-radius: var(--border-radius-xl, 16px);
+  overflow: hidden;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cover-frame .cover-blur-bg {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(24px) brightness(0.6);
+  transform: scale(1.1);
+  opacity: 0.85;
+}
+
+.cover-frame img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.hero-cover-frame {
+  max-height: 420px;
+  min-height: 220px;
+}
+
+.hero-cover-frame img {
+  max-height: 420px;
+}
+
+.sidebar-cover-frame {
+  max-height: 280px;
+  min-height: 160px;
+  border-radius: var(--border-radius-lg, 12px);
+  margin-bottom: 16px;
+}
+
+.sidebar-cover-frame img {
+  max-height: 280px;
+}
+
+.preview-cover-frame {
+  max-height: 240px;
+  border-radius: 8px;
+  margin-top: 12px;
+  border: 1px solid #d8dee9;
+}
+
+.preview-cover-frame img {
+  max-height: 240px;
+}
+
