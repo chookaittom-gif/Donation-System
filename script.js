@@ -715,21 +715,40 @@
             if (prevRefContainer) prevRefContainer.style.display = 'none';
             if (prevRefInput) prevRefInput.value = '';
 
+            const attendanceOptions = document.getElementById('attendanceTypeOptions');
+            const attendanceFixedInfo = document.getElementById('attendanceFixedInfo');
+            const attendanceFixedIcon = document.getElementById('attendanceFixedIcon');
+            const attendanceFixedText = document.getElementById('attendanceFixedText');
+
             if (activityType === 'NONE') {
                 if (attendanceContainer) attendanceContainer.style.display = 'none';
                 if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
                 if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
             } else if (activityType === 'ONSITE') {
-                if (attendanceContainer) attendanceContainer.style.display = 'none';
+                if (attendanceContainer) attendanceContainer.style.display = '';
+                if (attendanceOptions) attendanceOptions.style.display = 'none';
+                if (attendanceFixedInfo) {
+                    attendanceFixedInfo.style.display = 'flex';
+                    if (attendanceFixedIcon) attendanceFixedIcon.textContent = '🏢';
+                    if (attendanceFixedText) attendanceFixedText.textContent = 'รูปแบบการเข้าร่วม: Onsite';
+                }
                 if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = true; }
                 if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
             } else if (activityType === 'ONLINE') {
-                if (attendanceContainer) attendanceContainer.style.display = 'none';
+                if (attendanceContainer) attendanceContainer.style.display = '';
+                if (attendanceOptions) attendanceOptions.style.display = 'none';
+                if (attendanceFixedInfo) {
+                    attendanceFixedInfo.style.display = 'flex';
+                    if (attendanceFixedIcon) attendanceFixedIcon.textContent = '💻';
+                    if (attendanceFixedText) attendanceFixedText.textContent = 'รูปแบบการเข้าร่วม: Online';
+                }
                 if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
                 if (onlineInput) { onlineInput.required = false; onlineInput.checked = true; }
             } else {
                 // BOTH
                 if (attendanceContainer) attendanceContainer.style.display = '';
+                if (attendanceOptions) attendanceOptions.style.display = '';
+                if (attendanceFixedInfo) attendanceFixedInfo.style.display = 'none';
                 if (onsiteInput) onsiteInput.required = true;
                 if (onlineInput) onlineInput.required = true;
             }

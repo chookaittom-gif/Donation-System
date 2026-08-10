@@ -277,7 +277,7 @@
                                 
                                 <div class="form-group mt-md" id="attendanceTypeContainer">
                                      <label class="form-label">เข้าร่วมกิจกรรม <span class="required">*</span></label>
-                                     <div class="d-flex gap-lg mt-sm" style="flex-wrap: wrap;">
+                                     <div class="d-flex gap-lg mt-sm" id="attendanceTypeOptions" style="flex-wrap: wrap;">
                                          <label class="d-flex align-center gap-sm" style="cursor: pointer; min-height: 44px; padding-right: 16px;">
                                              <input type="radio" name="AttendanceType" value="Onsite" style="width: 20px; height: 20px; accent-color: var(--primary-color);" required>
                                              <span>Onsite</span>
@@ -286,6 +286,10 @@
                                              <input type="radio" name="AttendanceType" value="Online" style="width: 20px; height: 20px; accent-color: var(--primary-color);" required>
                                              <span>Online</span>
                                          </label>
+                                     </div>
+                                     <div id="attendanceFixedInfo" style="display: none; padding: 10px 14px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; color: #3730a3; font-weight: 500; min-height: 44px; align-items: center;" class="d-flex gap-sm mt-xs">
+                                         <span id="attendanceFixedIcon">💻</span>
+                                         <span id="attendanceFixedText">รูปแบบการเข้าร่วม: Online</span>
                                      </div>
                                  </div>
 
