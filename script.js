@@ -770,7 +770,9 @@
         const bankColor = primaryAccount.bankColor || primaryAccount.BankColor || '#1976D2';
         const branch = primaryAccount.branch || primaryAccount.Branch || '-';
         const accountType = primaryAccount.accountType || primaryAccount.AccountType || 'savings';
+        const qrCodeType = primaryAccount.qrCodeType || primaryAccount.QRCodeType || 'none';
         const qrCodeUrl = primaryAccount.qrCodeUrl || primaryAccount.QRCodeUrl || '';
+        const hasQrCode = qrCodeType !== 'none' && Boolean(qrCodeUrl && qrCodeUrl.trim());
 
         container.innerHTML = `
             <div class="sidebar-bank-card" style="
@@ -796,7 +798,7 @@
                     <span>สาขา: ${branch}</span>
                     <span>ประเภท: ${getAccountTypeText(accountType)}</span>
                 </div>
-                ${qrCodeUrl ? `
+                ${hasQrCode ? `
                 <div class="sidebar-qr-container" style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto; width: fit-content;">
                     <img src="${qrCodeUrl}" alt="QR Code พร้อมเพย์" class="sidebar-qr-image" style="object-fit: contain; border-radius: 8px;">
                     <div class="qr-label" style="color: #333; font-size: 0.75rem; margin-top: 8px; font-weight: 600;">สแกน QR เพื่อโอนเงิน</div>
