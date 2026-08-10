@@ -271,6 +271,7 @@
             'deleteDonation',
             'approveDonation',
             'rejectDonation',
+            'createOnsiteDonation',
             'generateDonationReport',
             'getUsers',
             'saveUser',
@@ -662,8 +663,20 @@
         const prevRefInput = document.querySelector('input[name="PreviousDonationReference"]');
         const noticeEl = document.getElementById('donationFormStatusNotice');
         
+        const activityType = (AppState.settings && AppState.settings.ActivityType) ? AppState.settings.ActivityType.toUpperCase() : 'BOTH';
+        const isOnlineChannelEnabled = !(AppState.settings && AppState.settings.DonationChannelOnline === 'false');
+        
         if (noticeEl) {
-            if (status === 'POST_EVENT') {
+            if (!isOnlineChannelEnabled) {
+                noticeEl.className = 'status-banner closed';
+                noticeEl.innerHTML = '🔒 ปิดรับการบริจาคผ่านช่องทาง Online';
+                noticeEl.style.display = 'block';
+                const donationForm = document.getElementById('donationForm');
+                if (donationForm) {
+                    const submitBtn = donationForm.querySelector('button[type="submit"]');
+                    if (submitBtn) submitBtn.disabled = true;
+                }
+            } else if (status === 'POST_EVENT') {
                 noticeEl.className = 'status-banner post-event';
                 noticeEl.innerHTML = '🕒 กิจกรรมหลักสิ้นสุดแล้ว ท่านยังสามารถร่วมบริจาคสนับสนุนเพิ่มเติมได้ผ่านช่องทางนี้';
                 noticeEl.style.display = 'block';
@@ -674,8 +687,8 @@
         
         if (status === 'POST_EVENT') {
             if (attendanceContainer) attendanceContainer.style.display = 'none';
-            if (onsiteInput) onsiteInput.required = false;
-            if (onlineInput) onlineInput.required = false;
+            if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
+            if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
             if (contributionContainer) contributionContainer.style.display = '';
             
             // Setup change listeners for ContributionType radio buttons
@@ -698,12 +711,28 @@
                 if (prevRefContainer) prevRefContainer.style.display = 'none';
             }
         } else {
-            if (attendanceContainer) attendanceContainer.style.display = '';
-            if (onsiteInput) onsiteInput.required = true;
-            if (onlineInput) onlineInput.required = true;
             if (contributionContainer) contributionContainer.style.display = 'none';
             if (prevRefContainer) prevRefContainer.style.display = 'none';
             if (prevRefInput) prevRefInput.value = '';
+
+            if (activityType === 'NONE') {
+                if (attendanceContainer) attendanceContainer.style.display = 'none';
+                if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
+                if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
+            } else if (activityType === 'ONSITE') {
+                if (attendanceContainer) attendanceContainer.style.display = 'none';
+                if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = true; }
+                if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
+            } else if (activityType === 'ONLINE') {
+                if (attendanceContainer) attendanceContainer.style.display = 'none';
+                if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
+                if (onlineInput) { onlineInput.required = false; onlineInput.checked = true; }
+            } else {
+                // BOTH
+                if (attendanceContainer) attendanceContainer.style.display = '';
+                if (onsiteInput) onsiteInput.required = true;
+                if (onlineInput) onlineInput.required = true;
+            }
         }
     }
 
@@ -1034,6 +1063,12 @@
     }
 
     function renderDonationsList(donations) {
+        const btnAdminOnsite = document.getElementById('btnAdminOnsiteDonation');
+        if (btnAdminOnsite) {
+            const isDonationChannelOnsite = !(AppState.settings && AppState.settings.DonationChannelOnsite === 'false');
+            btnAdminOnsite.style.display = (AppState.isAdmin && isDonationChannelOnsite) ? 'inline-block' : 'none';
+        }
+
         const tbody = document.getElementById('donationsTableBody');
         if (!tbody) return;
 
@@ -1209,6 +1244,9 @@
         setInputValue('CacheTTL', settings.CacheTTL || '');
         setInputValue('EventStatus', settings.EventStatus || 'OPEN');
         setCheckboxValue('AutoUpdateEventStatus', toBoolean(settings.AutoUpdateEventStatus));
+        setInputValue('ActivityType', settings.ActivityType || 'BOTH');
+        setCheckboxValue('DonationChannelOnline', settings.DonationChannelOnline !== undefined ? toBoolean(settings.DonationChannelOnline) : true);
+        setCheckboxValue('DonationChannelOnsite', settings.DonationChannelOnsite !== undefined ? toBoolean(settings.DonationChannelOnsite) : true);
     }
 
     function getProjectCoverDisplayUrl(url) {
@@ -1356,7 +1394,10 @@
             ContactEmail: getInputValue('ContactEmail'),
             ContactAttendanceType: getInputValue('ContactAttendanceType'),
             EventStatus: getInputValue('EventStatus'),
-            AutoUpdateEventStatus: getCheckboxValue('AutoUpdateEventStatus')
+            AutoUpdateEventStatus: getCheckboxValue('AutoUpdateEventStatus'),
+            ActivityType: getInputValue('ActivityType') || 'BOTH',
+            DonationChannelOnline: getCheckboxValue('DonationChannelOnline'),
+            DonationChannelOnsite: getCheckboxValue('DonationChannelOnsite')
         };
     }
 
@@ -2092,10 +2133,18 @@
             return;
         }
 
+        const activityType = (AppState.settings && AppState.settings.ActivityType) ? AppState.settings.ActivityType.toUpperCase() : 'BOTH';
         if (!isPostEvent) {
-            if (!data.AttendanceType) {
+            if (activityType === 'BOTH' && !data.AttendanceType) {
                 showAlert('กรุณาเลือกรูปแบบการเข้าร่วมกิจกรรม', '', 'warning');
                 return;
+            }
+            if (activityType === 'NONE') {
+                data.AttendanceType = '-';
+            } else if (activityType === 'ONSITE') {
+                data.AttendanceType = 'Onsite';
+            } else if (activityType === 'ONLINE') {
+                data.AttendanceType = 'Online';
             }
         } else {
             // Validate ContributionType
@@ -3002,3 +3051,106 @@
             }
         }
     }
+
+    function openAdminOnsiteModal() {
+        const modal = document.getElementById('adminOnsiteModal');
+        if (!modal) return;
+        const form = document.getElementById('adminOnsiteForm');
+        if (form) {
+            form.reset();
+            const dateInput = form.querySelector('input[name="TransferDate"]');
+            if (dateInput) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+        }
+        toggleOnsiteSlipUpload();
+        
+        const activityType = (AppState.settings && AppState.settings.ActivityType) ? AppState.settings.ActivityType.toUpperCase() : 'BOTH';
+        const attendanceGroup = document.getElementById('onsiteAttendanceGroup');
+        if (attendanceGroup) {
+            attendanceGroup.style.display = (activityType === 'BOTH') ? '' : 'none';
+        }
+        openModal('adminOnsiteModal');
+    }
+
+    function toggleOnsiteSlipUpload() {
+        const paymentRadio = document.querySelector('input[name="PaymentMethod"]:checked');
+        const onsiteSlipGroup = document.getElementById('onsiteSlipGroup');
+        if (onsiteSlipGroup) {
+            if (paymentRadio && paymentRadio.value === 'TRANSFER') {
+                onsiteSlipGroup.style.display = '';
+            } else {
+                onsiteSlipGroup.style.display = 'none';
+            }
+        }
+    }
+
+    async function submitAdminOnsiteDonation(e) {
+        e.preventDefault();
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        if (!data.DonorName || !data.DonorName.trim()) {
+            showAlert('กรุณากรอกชื่อผู้บริจาค', '', 'warning');
+            return;
+        }
+        if (!data.Amount || parseFloat(data.Amount) <= 0) {
+            showAlert('กรุณากรอกจำนวนเงิน', '', 'warning');
+            return;
+        }
+        if (!data.Position || !data.Position.trim()) {
+            showAlert('กรุณากรอกตำแหน่ง', '', 'warning');
+            return;
+        }
+        if (!data.Organization || !data.Organization.trim()) {
+            showAlert('กรุณากรอกหน่วยงาน', '', 'warning');
+            return;
+        }
+        if (!data.TransferDate) {
+            showAlert('กรุณากำหนดวันที่บริจาค', '', 'warning');
+            return;
+        }
+
+        const onsiteSlipInput = document.getElementById('onsiteSlipFile');
+        if (data.PaymentMethod === 'TRANSFER' && onsiteSlipInput && onsiteSlipInput.files && onsiteSlipInput.files[0]) {
+            setButtonLoading(submitBtn, true, '⏳ กำลังอัปโหลดสลิป...');
+            showLoading('กำลังอัปโหลดสลิป...');
+            try {
+                const file = onsiteSlipInput.files[0];
+                const base64 = await fileToBase64(file);
+                const uploadResult = await callApi('saveFileFromBase64', base64, file.name, file.type);
+                if (uploadResult && uploadResult.fileId) {
+                    data.SlipFileId = uploadResult.fileId;
+                    data.SlipUrl = uploadResult.url || '';
+                }
+            } catch (err) {
+                console.error('Upload onsite slip error:', err);
+            }
+        }
+
+        setButtonLoading(submitBtn, true, '⏳ กำลังบันทึก...');
+        showLoading('กำลังบันทึกบริจาคหน้างาน...');
+
+        try {
+            const response = await callApi('createOnsiteDonation', data);
+            if (response && response.success) {
+                closeModal('adminOnsiteModal');
+                showToast(response.message || 'บันทึกบริจาคหน้างานเรียบร้อย', 'success');
+                loadDonations();
+            } else {
+                showAlert('เกิดข้อผิดพลาด', response?.message || 'ไม่สามารถบันทึกได้', 'error');
+            }
+        } catch (error) {
+            console.error('submitAdminOnsiteDonation error:', error);
+            showAlert('เกิดข้อผิดพลาด', error.message, 'error');
+        } finally {
+            setButtonLoading(submitBtn, false);
+            hideLoading();
+        }
+    }
+
+    window.openAdminOnsiteModal = openAdminOnsiteModal;
+    window.toggleOnsiteSlipUpload = toggleOnsiteSlipUpload;
+    window.submitAdminOnsiteDonation = submitAdminOnsiteDonation;

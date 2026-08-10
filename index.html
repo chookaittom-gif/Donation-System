@@ -655,7 +655,8 @@
                             <h1 class="page-title">รายการบริจาค</h1>
                             <p class="page-subtitle">จัดการรายการบริจาคทั้งหมด</p>
                         </div>
-                        <div class="d-flex gap-md">
+                        <div class="d-flex gap-md align-center" style="flex-wrap: wrap;">
+                            <button type="button" class="btn btn-primary" id="btnAdminOnsiteDonation" style="display: none; min-height: 44px; white-space: nowrap;" onclick="openAdminOnsiteModal()">＋ บันทึกบริจาคหน้างาน</button>
                             <div class="search-box">
                                 <span>🔍</span>
                                 <input type="text" placeholder="ค้นหา..." id="donationSearch"
@@ -987,6 +988,47 @@
                                     </div>
                                 </div>
 
+                                <!-- Activity Setting -->
+                                <div class="settings-section">
+                                    <h3 class="settings-title">
+                                        <span class="icon">🎪</span>
+                                        การเข้าร่วมกิจกรรม
+                                    </h3>
+                                    <div class="form-group">
+                                        <label class="form-label">รูปแบบกิจกรรมที่รองรับ</label>
+                                        <select class="form-control" name="ActivityType" style="min-height: 44px;">
+                                            <option value="NONE">NONE - ไม่มีกิจกรรม</option>
+                                            <option value="ONSITE">ONSITE - Onsite อย่างเดียว</option>
+                                            <option value="ONLINE">ONLINE - Online อย่างเดียว</option>
+                                            <option value="BOTH">BOTH - Onsite และ Online</option>
+                                        </select>
+                                        <p class="form-hint">กำหนดตัวเลือกการเข้าร่วมกิจกรรมในแบบฟอร์มรับบริจาค</p>
+                                    </div>
+                                </div>
+
+                                <!-- Donation Channels Setting -->
+                                <div class="settings-section">
+                                    <h3 class="settings-title">
+                                        <span class="icon">💝</span>
+                                        ช่องทางรับบริจาค
+                                    </h3>
+                                    <div class="form-group">
+                                        <label class="form-label">เปิดรับบริจาคผ่านช่องทาง</label>
+                                        <div class="d-flex gap-lg mt-xs" style="flex-wrap: wrap;">
+                                            <label class="toggle-label" style="min-height: 44px; padding-right: 16px;">
+                                                <input type="checkbox" name="DonationChannelOnline" class="toggle-input" checked>
+                                                <span class="toggle-switch"></span>
+                                                <span>Online (สาธารณะ)</span>
+                                            </label>
+                                            <label class="toggle-label" style="min-height: 44px; padding-right: 16px;">
+                                                <input type="checkbox" name="DonationChannelOnsite" class="toggle-input" checked>
+                                                <span class="toggle-switch"></span>
+                                                <span>Onsite (หน้างานโดย Admin)</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Contact Info -->
                                 <div class="settings-section">
                                     <h3 class="settings-title">
@@ -1308,6 +1350,88 @@
                 <button class="btn btn-secondary" onclick="closeModal('userModal')">ยกเลิก</button>
                 <button class="btn btn-primary" onclick="saveUser()">💾 บันทึก</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: บันทึกบริจาคหน้างาน (Onsite Donation) -->
+    <div id="adminOnsiteModal" class="modal">
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h3 class="modal-title">＋ บันทึกบริจาคหน้างาน</h3>
+                <button type="button" class="modal-close" onclick="closeModal('adminOnsiteModal')">&times;</button>
+            </div>
+            <form id="adminOnsiteForm" onsubmit="submitAdminOnsiteDonation(event)">
+                <div class="modal-body">
+                    <div class="form-group mb-md">
+                        <label class="form-label">ชื่อผู้บริจาค (หรือนามแฝง) <span class="required">*</span></label>
+                        <input type="text" class="form-control" name="DonorName" placeholder="ระบุชื่อผู้บริจาค" required style="min-height: 44px;">
+                    </div>
+                    <div class="form-group mb-md">
+                        <label class="form-label">เบอร์โทรศัพท์ (ถ้ามี)</label>
+                        <input type="tel" class="form-control" name="DonorPhone" placeholder="0xx-xxx-xxxx" style="min-height: 44px;">
+                    </div>
+                    <div class="settings-grid mb-md">
+                        <div class="form-group">
+                            <label class="form-label">ตำแหน่ง <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="Position" placeholder="ระบุตำแหน่ง" required style="min-height: 44px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">หน่วยงาน <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="Organization" placeholder="ระบุหน่วยงาน" required style="min-height: 44px;">
+                        </div>
+                    </div>
+                    <div class="settings-grid mb-md">
+                        <div class="form-group">
+                            <label class="form-label">จำนวนเงิน (บาท) <span class="required">*</span></label>
+                            <input type="number" step="0.01" min="1" class="form-control" name="Amount" placeholder="0.00" required style="min-height: 44px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">วันที่บริจาค <span class="required">*</span></label>
+                            <input type="date" class="form-control" name="TransferDate" required style="min-height: 44px;">
+                        </div>
+                    </div>
+                    <div class="form-group mb-md">
+                        <label class="form-label">เวลาที่รับเงิน</label>
+                        <input type="time" class="form-control" name="TransferTime" style="min-height: 44px;">
+                    </div>
+                    <div class="form-group mb-md">
+                        <label class="form-label">วิธีรับเงิน <span class="required">*</span></label>
+                        <div class="d-flex gap-lg mt-xs" style="flex-wrap: wrap;">
+                            <label class="d-flex align-center gap-sm" style="cursor: pointer; min-height: 44px; padding-right: 16px;">
+                                <input type="radio" name="PaymentMethod" value="CASH" checked onchange="toggleOnsiteSlipUpload()" style="width: 20px; height: 20px; accent-color: var(--primary-color);">
+                                <span>💵 เงินสด (CASH)</span>
+                            </label>
+                            <label class="d-flex align-center gap-sm" style="cursor: pointer; min-height: 44px; padding-right: 16px;">
+                                <input type="radio" name="PaymentMethod" value="TRANSFER" onchange="toggleOnsiteSlipUpload()" style="width: 20px; height: 20px; accent-color: var(--primary-color);">
+                                <span>📱 โอนเงิน / QR</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group mb-md" id="onsiteAttendanceGroup" style="display: none;">
+                        <label class="form-label">เข้าร่วมกิจกรรม <span class="required">*</span></label>
+                        <div class="d-flex gap-lg mt-xs" style="flex-wrap: wrap;">
+                            <label class="d-flex align-center gap-sm" style="cursor: pointer; min-height: 44px; padding-right: 16px;">
+                                <input type="radio" name="AttendanceType" value="Onsite" checked style="width: 20px; height: 20px; accent-color: var(--primary-color);">
+                                <span>Onsite</span>
+                            </label>
+                            <label class="d-flex align-center gap-sm" style="cursor: pointer; min-height: 44px; padding-right: 16px;">
+                                <input type="radio" name="AttendanceType" value="Online" style="width: 20px; height: 20px; accent-color: var(--primary-color);">
+                                <span>Online</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group mb-md" id="onsiteSlipGroup" style="display: none;">
+                        <label class="form-label">แนบหลักฐานการโอนเงิน (สลิป)</label>
+                        <input type="file" id="onsiteSlipFile" class="form-control" accept="image/*" style="min-height: 44px;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('adminOnsiteModal')" style="min-height: 44px;">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary" style="min-height: 44px;">💾 บันทึกบริจาคหน้างาน</button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
