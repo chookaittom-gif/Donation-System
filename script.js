@@ -729,8 +729,8 @@
                 if (attendanceOptions) attendanceOptions.style.setProperty('display', 'none', 'important');
                 if (attendanceFixedInfo) {
                     attendanceFixedInfo.style.display = 'flex';
-                    if (attendanceFixedIcon) attendanceFixedIcon.textContent = '🏢';
-                    if (attendanceFixedText) attendanceFixedText.textContent = 'รูปแบบการเข้าร่วม: Onsite';
+                    if (attendanceFixedIcon) attendanceFixedIcon.textContent = '📍';
+                    if (attendanceFixedText) attendanceFixedText.textContent = 'การเข้าร่วมกิจกรรม: Onsite';
                 }
                 if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = true; }
                 if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
@@ -740,7 +740,7 @@
                 if (attendanceFixedInfo) {
                     attendanceFixedInfo.style.display = 'flex';
                     if (attendanceFixedIcon) attendanceFixedIcon.textContent = '💻';
-                    if (attendanceFixedText) attendanceFixedText.textContent = 'รูปแบบการเข้าร่วม: Online';
+                    if (attendanceFixedText) attendanceFixedText.textContent = 'การเข้าร่วมกิจกรรม: Online';
                 }
                 if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
                 if (onlineInput) { onlineInput.required = false; onlineInput.checked = true; }
@@ -1116,7 +1116,10 @@
           <strong>${d.DonorName || 'ไม่ประสงค์ออกนาม'}</strong>
           <div class="text-muted" style="font-size: 0.8rem">${d.DonorPhone || '-'}</div>
           <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;">
-              <span class="phase-badge ${d.DonationPhase === 'POST_EVENT' ? 'post-event' : 'event-period'}">
+               <span class="channel-badge ${d.DonationChannel === 'ONSITE' ? 'onsite' : 'online'}">
+                   ${d.DonationChannel === 'ONSITE' ? '🏢 ช่องทางบริจาค: Onsite' : '🌐 ช่องทางบริจาค: Online'}
+               </span>
+               <span class="phase-badge ${d.DonationPhase === 'POST_EVENT' ? 'post-event' : 'event-period'}">
                   ${d.DonationPhase === 'POST_EVENT' ? 'หลังจบกิจกรรม' : 'กิจกรรมหลัก'}
               </span>
               ${d.ContributionType === 'ADDITIONAL' ? `
@@ -1808,6 +1811,8 @@
         const phaseText = donation.DonationPhase === 'POST_EVENT' ? 'หลังจบกิจกรรม' : 'กิจกรรมหลัก';
         const contribText = donation.ContributionType === 'ADDITIONAL' ? 'สนับสนุนเพิ่มเติม' : 'บริจาคครั้งแรก';
         const attendanceText = donation.AttendanceType === 'PostEvent' ? '— (หลังจบกิจกรรม)' : (donation.AttendanceType || '-');
+        const channelText = donation.DonationChannel === 'ONSITE' ? 'Onsite' : 'Online';
+        const paymentText = ({ CASH: 'เงินสด', TRANSFER: 'โอนเงิน', QR: 'QR' })[donation.PaymentMethod] || donation.PaymentMethod || '-';
 
         Swal.fire({
             title: 'รายละเอียดการบริจาค',
@@ -1817,6 +1822,8 @@
         <p><strong>ตำแหน่ง:</strong> ${donation.Position || '-'}</p>
         <p><strong>หน่วยงาน:</strong> ${donation.Organization || '-'}</p>
         <p><strong>เบอร์โทร:</strong> ${donation.DonorPhone || '-'}</p>
+        <p><strong>ช่องทางบริจาค:</strong> ${channelText}</p>
+        <p><strong>วิธีรับเงิน:</strong> ${paymentText}</p>
         <p><strong>เข้าร่วมกิจกรรม:</strong> ${attendanceText}</p>
         <p><strong>ลักษณะการสนับสนุน:</strong> ${contribText}</p>
         ${donation.ContributionType === 'ADDITIONAL' && donation.PreviousDonationReference ? `<p><strong>อ้างอิงรายการเดิม:</strong> ${donation.PreviousDonationReference}</p>` : ''}
@@ -2065,22 +2072,23 @@
         });
     }
 
+    function validateImageUpload(file) {
+        if (!file || !['image/jpeg', 'image/png'].includes(file.type)) {
+            showAlert('ไฟล์ไม่ถูกต้อง', 'กรุณาอัปโหลดไฟล์รูปภาพ (JPG, PNG)', 'warning');
+            return false;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert('ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์ต้องไม่เกิน 5MB', 'warning');
+            return false;
+        }
+        return true;
+    }
+
     function handleFiles(files) {
         if (files.length === 0) return;
 
         const file = files[0];
-
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            showAlert('ไฟล์ไม่ถูกต้อง', 'กรุณาอัปโหลดไฟล์รูปภาพ (JPG, PNG)', 'warning');
-            return;
-        }
-
-        // Validate file size (5MB max)
-        if (file.size > 5 * 1024 * 1024) {
-            showAlert('ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์ต้องไม่เกิน 5MB', 'warning');
-            return;
-        }
+        if (!validateImageUpload(file)) return;
 
         AppState.uploadedFile = file;
         showFilePreview(file);
@@ -2131,6 +2139,7 @@
 
         const form = e.target;
         const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn.disabled) return;
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
 
@@ -2139,6 +2148,11 @@
 
         if (!data.Amount || parseFloat(data.Amount) <= 0) {
             showAlert('กรุณากรอกจำนวนเงิน', '', 'warning');
+            return;
+        }
+
+        if (!AppState.uploadedFile) {
+            showAlert('กรุณาอัปโหลดสลิปการโอนเงิน', '', 'warning');
             return;
         }
 
@@ -2155,7 +2169,7 @@
         const activityType = (AppState.settings && AppState.settings.ActivityType) ? AppState.settings.ActivityType.toUpperCase() : 'BOTH';
         if (!isPostEvent) {
             if (activityType === 'BOTH' && !data.AttendanceType) {
-                showAlert('กรุณาเลือกรูปแบบการเข้าร่วมกิจกรรม', '', 'warning');
+                showAlert('กรุณาเลือกการเข้าร่วมกิจกรรม', '', 'warning');
                 return;
             }
             if (activityType === 'NONE') {
@@ -2181,16 +2195,13 @@
         showLoading('กำลังบันทึกข้อมูล...');
 
         try {
-            // Upload file first if exists
-            if (AppState.uploadedFile) {
-                const base64 = await fileToBase64(AppState.uploadedFile);
-                const uploadResult = await callApi('saveFileFromBase64', base64, AppState.uploadedFile.name, AppState.uploadedFile.type);
-
-                if (uploadResult.success) {
-                    data.SlipFileId = uploadResult.fileId;
-                    data.SlipUrl = uploadResult.fileUrl;
-                }
+            const base64 = await fileToBase64(AppState.uploadedFile);
+            const uploadResult = await callApi('saveFileFromBase64', base64, AppState.uploadedFile.name, AppState.uploadedFile.type);
+            if (!uploadResult?.success || !uploadResult.fileId || !uploadResult.fileUrl) {
+                throw new Error(uploadResult?.message || 'อัปโหลดสลิปไม่สำเร็จ');
             }
+            data.SlipFileId = uploadResult.fileId;
+            data.SlipUrl = uploadResult.fileUrl;
 
             // Save donation
             const response = await callApi('createDonation', data);
@@ -3085,9 +3096,10 @@
         toggleOnsiteSlipUpload();
         
         const activityType = (AppState.settings && AppState.settings.ActivityType) ? AppState.settings.ActivityType.toUpperCase() : 'BOTH';
+        const status = (AppState.settings && AppState.settings.effectiveEventStatus) || 'OPEN';
         const attendanceGroup = document.getElementById('onsiteAttendanceGroup');
         if (attendanceGroup) {
-            attendanceGroup.style.display = (activityType === 'BOTH') ? '' : 'none';
+            attendanceGroup.style.display = (status !== 'POST_EVENT' && activityType === 'BOTH') ? '' : 'none';
         }
         openModal('adminOnsiteModal');
     }
@@ -3096,7 +3108,7 @@
         const paymentRadio = document.querySelector('input[name="PaymentMethod"]:checked');
         const onsiteSlipGroup = document.getElementById('onsiteSlipGroup');
         if (onsiteSlipGroup) {
-            if (paymentRadio && paymentRadio.value === 'TRANSFER') {
+            if (paymentRadio && (paymentRadio.value === 'TRANSFER' || paymentRadio.value === 'QR')) {
                 onsiteSlipGroup.style.display = '';
             } else {
                 onsiteSlipGroup.style.display = 'none';
@@ -3108,6 +3120,7 @@
         e.preventDefault();
         const form = e.target;
         const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn.disabled) return;
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
 
@@ -3119,45 +3132,38 @@
             showAlert('กรุณากรอกจำนวนเงิน', '', 'warning');
             return;
         }
-        if (!data.Position || !data.Position.trim()) {
-            showAlert('กรุณากรอกตำแหน่ง', '', 'warning');
-            return;
-        }
-        if (!data.Organization || !data.Organization.trim()) {
-            showAlert('กรุณากรอกหน่วยงาน', '', 'warning');
-            return;
-        }
-        if (!data.TransferDate) {
-            showAlert('กรุณากำหนดวันที่บริจาค', '', 'warning');
+        if (!data.TransferDate || !data.TransferTime) {
+            showAlert('กรุณากำหนดวันที่และเวลาบริจาค', '', 'warning');
             return;
         }
 
         const onsiteSlipInput = document.getElementById('onsiteSlipFile');
-        if (data.PaymentMethod === 'TRANSFER' && onsiteSlipInput && onsiteSlipInput.files && onsiteSlipInput.files[0]) {
-            setButtonLoading(submitBtn, true, '⏳ กำลังอัปโหลดสลิป...');
-            showLoading('กำลังอัปโหลดสลิป...');
-            try {
-                const file = onsiteSlipInput.files[0];
-                const base64 = await fileToBase64(file);
-                const uploadResult = await callApi('saveFileFromBase64', base64, file.name, file.type);
-                if (uploadResult && uploadResult.fileId) {
-                    data.SlipFileId = uploadResult.fileId;
-                    data.SlipUrl = uploadResult.url || '';
-                }
-            } catch (err) {
-                console.error('Upload onsite slip error:', err);
-            }
-        }
+        const evidenceFile = onsiteSlipInput && onsiteSlipInput.files ? onsiteSlipInput.files[0] : null;
+        if (evidenceFile && !validateImageUpload(evidenceFile)) return;
 
+        data.TransferDate = `${data.TransferDate}T${data.TransferTime}`;
         setButtonLoading(submitBtn, true, '⏳ กำลังบันทึก...');
         showLoading('กำลังบันทึกบริจาคหน้างาน...');
 
         try {
+            if ((data.PaymentMethod === 'TRANSFER' || data.PaymentMethod === 'QR') && evidenceFile) {
+                submitBtn.innerHTML = '⏳ กำลังอัปโหลดหลักฐาน...';
+                const file = evidenceFile;
+                const base64 = await fileToBase64(file);
+                const uploadResult = await callApi('saveFileFromBase64', base64, file.name, file.type);
+                if (!uploadResult?.success || !uploadResult.fileId || !uploadResult.fileUrl) {
+                    throw new Error(uploadResult?.message || 'อัปโหลดหลักฐานไม่สำเร็จ');
+                }
+                data.SlipFileId = uploadResult.fileId;
+                data.SlipUrl = uploadResult.fileUrl;
+            }
+
+            submitBtn.innerHTML = '⏳ กำลังบันทึก...';
             const response = await callApi('createOnsiteDonation', data);
             if (response && response.success) {
                 closeModal('adminOnsiteModal');
                 showToast(response.message || 'บันทึกบริจาคหน้างานเรียบร้อย', 'success');
-                loadDonations();
+                await loadDonations();
             } else {
                 showAlert('เกิดข้อผิดพลาด', response?.message || 'ไม่สามารถบันทึกได้', 'error');
             }

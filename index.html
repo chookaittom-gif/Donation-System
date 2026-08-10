@@ -229,7 +229,7 @@
         <section class="donation-form-section">
             <div class="container">
                 <div class="text-center mb-lg">
-                    <span class="hero-badge">OFFICIAL DONATION CHANNEL</span>
+                    <span class="hero-badge">🌐 ช่องทางบริจาค: Online</span>
                     <h1 style="margin-top: 16px;">แจ้งหลักฐานการโอนเงิน</h1>
                     <!-- <p class="text-muted">ร่วมสมทบทุนจัดซื้อของขวัญวันเด็ก ปี 2569 —
                         ขอบคุณที่ร่วมเป็นส่วนหนึ่งในการมอบความสุขให้น้องๆ</p>
@@ -252,7 +252,7 @@
                                         <div class="upload-hint">รองรับไฟล์ JPG, PNG (ขนาดไม่เกิน 5MB)</div>
                                         <div class="upload-btn">เลือกไฟล์จากเครื่อง</div>
                                     </div>
-                                    <input type="file" id="slipFile" accept="image/*" style="display: none;">
+                                    <input type="file" id="slipFile" accept="image/jpeg,image/png" style="display: none;">
                                     <div id="filePreview" class="d-none"></div>
                                 </div>
 
@@ -276,7 +276,7 @@
                                 </div>
                                 
                                 <div class="form-group mt-md" id="attendanceTypeContainer">
-                                     <label class="form-label">เข้าร่วมกิจกรรม <span class="required">*</span></label>
+                                    <label class="form-label">การเข้าร่วมกิจกรรม <span class="required">*</span></label>
                                      <div class="d-flex gap-lg mt-sm" id="attendanceTypeOptions" style="flex-wrap: wrap;">
                                          <label class="d-flex align-center gap-sm" style="cursor: pointer; min-height: 44px; padding-right: 16px;">
                                              <input type="radio" name="AttendanceType" value="Onsite" style="width: 20px; height: 20px; accent-color: var(--primary-color);" required>
@@ -289,7 +289,7 @@
                                      </div>
                                      <div id="attendanceFixedInfo" style="display: none; padding: 10px 14px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; color: #3730a3; font-weight: 500; min-height: 44px; align-items: center;" class="d-flex gap-sm mt-xs">
                                          <span id="attendanceFixedIcon">💻</span>
-                                         <span id="attendanceFixedText">รูปแบบการเข้าร่วม: Online</span>
+                                         <span id="attendanceFixedText">การเข้าร่วมกิจกรรม: Online</span>
                                      </div>
                                  </div>
 
@@ -380,7 +380,7 @@
 
                                 <!-- Submit -->
                                 <button type="submit" class="btn btn-accent btn-block btn-lg mt-lg">
-                                    ▶️ ยืนยันการแจ้งโอน
+                                    📤 ยืนยันการแจ้งโอน
                                 </button>
 
                                 <p class="text-center text-muted mt-md" style="font-size: 0.85rem;">
@@ -1361,7 +1361,7 @@
     <div id="adminOnsiteModal" class="modal">
         <div class="modal-content modal-md">
             <div class="modal-header">
-                <h3 class="modal-title">＋ บันทึกบริจาคหน้างาน</h3>
+                <h3 class="modal-title">🏢 บันทึกบริจาคหน้างาน</h3>
                 <button type="button" class="modal-close" onclick="closeModal('adminOnsiteModal')">&times;</button>
             </div>
             <form id="adminOnsiteForm" onsubmit="submitAdminOnsiteDonation(event)">
@@ -1376,12 +1376,12 @@
                     </div>
                     <div class="settings-grid mb-md">
                         <div class="form-group">
-                            <label class="form-label">ตำแหน่ง <span class="required">*</span></label>
-                            <input type="text" class="form-control" name="Position" placeholder="ระบุตำแหน่ง" required style="min-height: 44px;">
+                            <label class="form-label">ตำแหน่ง</label>
+                            <input type="text" class="form-control" name="Position" placeholder="ระบุตำแหน่ง" style="min-height: 44px;">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">หน่วยงาน <span class="required">*</span></label>
-                            <input type="text" class="form-control" name="Organization" placeholder="ระบุหน่วยงาน" required style="min-height: 44px;">
+                            <label class="form-label">หน่วยงาน</label>
+                            <input type="text" class="form-control" name="Organization" placeholder="ระบุหน่วยงาน" style="min-height: 44px;">
                         </div>
                     </div>
                     <div class="settings-grid mb-md">
@@ -1395,8 +1395,8 @@
                         </div>
                     </div>
                     <div class="form-group mb-md">
-                        <label class="form-label">เวลาที่รับเงิน</label>
-                        <input type="time" class="form-control" name="TransferTime" style="min-height: 44px;">
+                        <label class="form-label">เวลาที่บริจาค <span class="required">*</span></label>
+                        <input type="time" class="form-control" name="TransferTime" required style="min-height: 44px;">
                     </div>
                     <div class="form-group mb-md">
                         <label class="form-label">วิธีรับเงิน <span class="required">*</span></label>
@@ -1407,7 +1407,11 @@
                             </label>
                             <label class="d-flex align-center gap-sm" style="cursor: pointer; min-height: 44px; padding-right: 16px;">
                                 <input type="radio" name="PaymentMethod" value="TRANSFER" onchange="toggleOnsiteSlipUpload()" style="width: 20px; height: 20px; accent-color: var(--primary-color);">
-                                <span>📱 โอนเงิน / QR</span>
+                                <span>🏦 โอนเงิน (TRANSFER)</span>
+                            </label>
+                            <label class="d-flex align-center gap-sm" style="cursor: pointer; min-height: 44px; padding-right: 16px;">
+                                <input type="radio" name="PaymentMethod" value="QR" onchange="toggleOnsiteSlipUpload()" style="width: 20px; height: 20px; accent-color: var(--primary-color);">
+                                <span>📱 QR (QR)</span>
                             </label>
                         </div>
                     </div>
@@ -1425,14 +1429,14 @@
                         </div>
                     </div>
                     <div class="form-group mb-md" id="onsiteSlipGroup" style="display: none;">
-                        <label class="form-label">แนบหลักฐานการโอนเงิน (สลิป)</label>
-                        <input type="file" id="onsiteSlipFile" class="form-control" accept="image/*" style="min-height: 44px;">
+                        <label class="form-label">แนบหลักฐานการรับเงิน (ถ้ามี)</label>
+                        <input type="file" id="onsiteSlipFile" class="form-control" accept="image/jpeg,image/png" style="min-height: 44px;">
                     </div>
                 </div>
                 <div class="modal-footer">
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeModal('adminOnsiteModal')" style="min-height: 44px;">ยกเลิก</button>
-                        <button type="submit" class="btn btn-primary" style="min-height: 44px;">💾 บันทึกบริจาคหน้างาน</button>
+                        <button type="submit" class="btn btn-primary" style="min-height: 44px;">💝 บันทึกการบริจาค</button>
                     </div>
                 </div>
             </form>

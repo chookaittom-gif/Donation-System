@@ -2863,6 +2863,21 @@ button, .btn, .bank-option, .nav-btn, .modal-actions button, input[type="button"
   background-color: #fef3c7;
   color: #d97706;
 }
+.channel-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+}
+.channel-badge.online {
+  background-color: var(--primary-light);
+  color: var(--primary-dark);
+}
+.channel-badge.onsite {
+  background-color: var(--accent-light);
+  color: var(--accent-dark);
+}
 .ref-text {
   font-size: 0.8rem;
   color: #d97706;
@@ -2931,4 +2946,3 @@ button, .btn, .bank-option, .nav-btn, .modal-actions button, input[type="button"
 .preview-cover-frame img {
   max-height: 240px;
 }
-
