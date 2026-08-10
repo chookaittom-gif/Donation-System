@@ -726,7 +726,7 @@
                 if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
             } else if (activityType === 'ONSITE') {
                 if (attendanceContainer) attendanceContainer.style.display = '';
-                if (attendanceOptions) attendanceOptions.style.display = 'none';
+                if (attendanceOptions) attendanceOptions.style.setProperty('display', 'none', 'important');
                 if (attendanceFixedInfo) {
                     attendanceFixedInfo.style.display = 'flex';
                     if (attendanceFixedIcon) attendanceFixedIcon.textContent = '🏢';
@@ -736,7 +736,7 @@
                 if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
             } else if (activityType === 'ONLINE') {
                 if (attendanceContainer) attendanceContainer.style.display = '';
-                if (attendanceOptions) attendanceOptions.style.display = 'none';
+                if (attendanceOptions) attendanceOptions.style.setProperty('display', 'none', 'important');
                 if (attendanceFixedInfo) {
                     attendanceFixedInfo.style.display = 'flex';
                     if (attendanceFixedIcon) attendanceFixedIcon.textContent = '💻';
@@ -748,7 +748,7 @@
                 // BOTH
                 if (attendanceContainer) attendanceContainer.style.display = '';
                 if (attendanceOptions) attendanceOptions.style.display = '';
-                if (attendanceFixedInfo) attendanceFixedInfo.style.display = 'none';
+                if (attendanceFixedInfo) attendanceFixedInfo.style.setProperty('display', 'none', 'important');
                 if (onsiteInput) onsiteInput.required = true;
                 if (onlineInput) onlineInput.required = true;
             }
