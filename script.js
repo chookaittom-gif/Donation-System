@@ -943,31 +943,48 @@
         const ctx = document.getElementById('donationChart');
         if (!ctx) return;
 
+        const chartPanel = ctx.closest('.card');
+
         // Destroy existing chart
         if (AppState.chart) {
             AppState.chart.destroy();
+            AppState.chart = null;
         }
 
+        const values = chartData && Array.isArray(chartData.data)
+            ? chartData.data.map(value => {
+                const number = parseFloat(String(value ?? '').replace(/,/g, ''));
+                return Number.isFinite(number) ? number : 0;
+            })
+            : [];
+        const labels = chartData && Array.isArray(chartData.labels)
+            ? chartData.labels.slice(0, values.length)
+            : [];
+        while (labels.length < values.length) labels.push('');
+
+        if (!values.some(value => value > 0)) {
+            if (chartPanel) chartPanel.style.display = 'none';
+            return;
+        }
+
+        if (chartPanel) chartPanel.style.display = '';
+
         AppState.chart = new Chart(ctx, {
-            type: 'line',
+            type: 'bar',
             data: {
-                labels: chartData.labels,
+                labels: labels,
                 datasets: [{
                     label: 'ยอดบริจาค',
-                    data: chartData.data,
+                    data: values,
                     borderColor: '#F5A623',
-                    backgroundColor: 'rgba(245, 166, 35, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#F5A623',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7
+                    backgroundColor: 'rgba(245, 166, 35, 0.75)',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    maxBarThickness: 56
                 }]
             },
             options: {
+                indexAxis: 'x',
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
@@ -989,7 +1006,13 @@
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { font: { family: 'Kanit' } }
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 7,
+                            minRotation: 0,
+                            maxRotation: 0,
+                            font: { family: 'Kanit' }
+                        }
                     },
                     y: {
                         beginAtZero: true,
