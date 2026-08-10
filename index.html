@@ -86,10 +86,6 @@
                     <span class="project-name">โครงการบริจาค</span>
                 </a>
 
-                <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('active')">
-                    ☰
-                </button>
-
                 <ul class="nav-links">
                     <!-- <li><a href="#" class="active">หน้าหลัก</a></li> -->
                     <!-- <li><a href="#about">เกี่ยวกับโครงการ</a></li> -->
@@ -140,7 +136,7 @@
                     <div class="stat-card" style="border: none; padding: 16px;">
                         <div class="stat-icon">💰</div>
                         <div>
-                            <div class="stat-label">ยอดเงินบริจาคปัจจุบัน</div>
+                            <div class="stat-label">ยอดเงินโครงการปัจจุบัน</div>
                             <div class="stat-value total-amount">฿0</div>
                             <div class="stat-change positive">↑ +15% จากเมื่อวาน</div>
                         </div>
@@ -149,7 +145,7 @@
                         <div class="stat-icon">🎯</div>
                         <div>
                             <div class="stat-label">เป้าหมายยอดเงิน</div>
-                            <div class="stat-value target-amount">฿100,000</div>
+                            <div class="stat-value target-amount">฿150,000</div>
                             <div class="stat-change">ต้องการอีก <span class="remaining-amount">฿0</span></div>
                         </div>
                     </div>
@@ -243,7 +239,7 @@
                         <!-- Form -->
                         <div class="card">
                             <form id="donationForm">
-                                <div id="donationFormStatusNotice" class="status-banner post-event" style="display: none; margin: 0 0 20px 0; width: 100%; font-size: 0.95rem; padding: 12px;"></div>
+                                <div id="donationFormStatusNotice" class="status-banner post-event" style="display: none; margin: 0 0 16px 0; width: 100%; font-size: 0.85rem; padding: 8px 12px;"></div>
                                 <!-- File Upload -->
                                 <div class="form-group">
                                     <div class="form-section-title">
@@ -555,7 +551,7 @@
                             <div class="d-flex justify-between">
                                 <div class="stat-icon">💰</div>
                             </div>
-                            <div class="stat-label">ยอดรวมเงินบริจาคทั้งหมด</div>
+                            <div class="stat-label">ยอดรวมเงินโครงการทั้งหมด</div>
                             <div class="stat-value stat-total-amount">฿0</div>
                             <div class="stat-change positive stat-growth">↑ +0% จากเดือนก่อน</div>
                         </div>
@@ -821,9 +817,16 @@
                                     <div class="form-group">
                                         <label class="form-label">จำนวนเงินเป้าหมาย (บาท)</label>
                                         <input type="number" class="form-control" name="TargetAmount"
-                                            placeholder="500,000">
+                                            placeholder="150,000">
                                         <p class="form-hint">หากไม่ระบุเป้าหมาย ระบบจะแสดงเป็น "รับบริจาคไม่จำกัดจำนวน"
                                         </p>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">ยอดยกมา (บาท)</label>
+                                        <input type="number" class="form-control" name="OpeningBalance"
+                                            placeholder="120,000" min="0" step="0.01">
+                                        <p class="form-hint">ยอดเงินที่มีอยู่ก่อนเริ่มบันทึกรายการบริจาคในระบบ และจะรวมในยอดโครงการ</p>
                                     </div>
                                 </div>
 
@@ -1275,7 +1278,10 @@
                 </div>
                 <div class="form-group mb-md">
                     <label class="form-label">รหัสผ่าน (Password)</label>
-                    <input type="password" class="form-control" name="Password" id="userFormPassword" required placeholder="กรอกรหัสผ่าน">
+                    <div class="password-input-wrap">
+                        <input type="password" class="form-control" name="Password" id="userFormPassword" required placeholder="กรอกรหัสผ่าน">
+                        <button type="button" class="password-toggle" id="userFormPasswordToggle" aria-label="แสดงรหัสผ่าน" aria-pressed="false"></button>
+                    </div>
                 </div>
                 <div class="form-group mb-md">
                     <label class="form-label">บทบาท (Role)</label>
@@ -1321,6 +1327,10 @@
                     title: document.querySelector('.project-name').textContent,
                     text: 'ร่วมบริจาคเพื่อน้องๆ',
                     url: projectUrl
+                }).catch(error => {
+                    if (error?.name !== 'AbortError') {
+                        showToast('ไม่สามารถแชร์โครงการได้', 'error');
+                    }
                 });
             } else {
                 copyToClipboard(projectUrl);
