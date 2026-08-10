@@ -2883,7 +2883,7 @@ button, .btn, .bank-option, .nav-btn, .modal-actions button, input[type="button"
 }
 
 .cover-frame .cover-blur-bg {
-  display: none; /* ponytail: hide blurred cover background */
+  display: block; /* show blurred cover background */
   position: absolute;
   inset: -20px;
   background-size: cover;
