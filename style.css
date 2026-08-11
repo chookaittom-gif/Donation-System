@@ -1657,6 +1657,14 @@
   }
 
   @media (max-width: 992px) {
+    .nav-toggle {
+      display: inline-flex;
+      width: 44px;
+      height: 44px;
+      align-items: center;
+      justify-content: center;
+    }
+
     .sidebar-qr-image {
       width: 160px;
       height: 160px;
@@ -1937,7 +1945,7 @@
     }
 
     .nav-toggle {
-      display: block;
+      display: inline-flex;
     }
 
     .hero-title {

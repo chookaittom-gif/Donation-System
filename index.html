@@ -467,7 +467,7 @@
             <div class="sidebar-overlay" onclick="closeSidebar()"></div>
 
             <!-- Sidebar -->
-            <aside class="admin-sidebar">
+            <aside class="admin-sidebar" id="adminSidebar">
                 <div class="sidebar-header">
                     <div class="sidebar-brand">
                         <div
@@ -516,7 +516,7 @@
 
                 <!-- Admin Header -->
                 <header class="admin-header">
-                    <button class="nav-toggle" onclick="toggleSidebar()" style="display: none;">☰</button>
+                    <button class="nav-toggle" type="button" onclick="toggleSidebar()" aria-label="เปิดเมนูผู้ดูแลระบบ" aria-controls="adminSidebar" aria-expanded="false">☰</button>
 
                     <div class="search-box">
                         <span>🔍</span>

@@ -2745,8 +2745,9 @@
     function toggleSidebar() {
         const sidebar = document.querySelector('.admin-sidebar');
         const overlay = document.querySelector('.sidebar-overlay');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
+        const isActive = sidebar.classList.toggle('active');
+        overlay.classList.toggle('active', isActive);
+        document.querySelector('.nav-toggle')?.setAttribute('aria-expanded', String(isActive));
     }
 
     function closeSidebar() {
@@ -2754,6 +2755,7 @@
         const overlay = document.querySelector('.sidebar-overlay');
         sidebar.classList.remove('active');
         overlay.classList.remove('active');
+        document.querySelector('.nav-toggle')?.setAttribute('aria-expanded', 'false');
     }
 
     // ===== QR CODE FIELD TOGGLE =====
