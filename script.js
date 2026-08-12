@@ -461,10 +461,11 @@
     async function loadSettings() {
         try {
             showLoading('กำลังโหลดการตั้งค่า...');
+            const bankAccountsPromise = loadBankAccounts();
             const settings = await callApi('getSettings');
             AppState.settings = settings || {};
             renderSettingsForm(AppState.settings);
-            await loadBankAccounts();
+            await bankAccountsPromise;
         } catch (error) {
             console.error('loadSettings error:', error);
             showToast('เกิดข้อผิดพลาดในการโหลดการตั้งค่า', 'error');
@@ -1574,6 +1575,9 @@
         if (hash === '#admin') {
             if (!AppState.isAdmin) {
                 showAdminLogin();
+            } else {
+                navigateTo('admin');
+                navigateAdmin('dashboard');
             }
         } else if (hash === '#donate') {
             navigateTo('donate');
