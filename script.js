@@ -5,6 +5,7 @@
 
     // ===== GLOBAL STATE =====
     const activeRequests = new Map();
+    let sessionExpiryTimer = null;
     const AppState = {
         currentPage: 'public',
         currentAdminPage: 'dashboard',
@@ -45,16 +46,13 @@
                         AppState.session = restoredSession;
                         AppState.isAdmin = true;
                         applySessionPermissions(restoredSession);
+                        scheduleSessionExpiry(restoredSession);
                         navigateTo('admin');
                         navigateAdmin('dashboard');
                         showToast('ยินดีต้อนรับกลับ, ' + restoredSession.displayName, 'success');
                     } else {
-                        localStorage.removeItem('donationAdminSession');
-                        AppState.session = null;
-                        AppState.isAdmin = false;
-                        window.location.hash = '';
-                        navigateTo('public');
-                        showAlert('เซสชันหมดอายุ', 'กรุณาเข้าสู่ระบบใหม่', 'warning');
+                        AppState.session = restoredSession;
+                        expireAdminSession();
                     }
                 } catch (e) {
                     console.error('Session restore error:', e);
@@ -129,6 +127,11 @@
 
         // Hash change for navigation
         window.addEventListener('hashchange', handleHashChange);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                enforceSessionExpiry();
+            }
+        });
 
 
         // Key bindings for userModal (Esc = Cancel, Enter = Save)
@@ -303,6 +306,9 @@
             'deleteUser'
         ];
         if (protectedApis.includes(functionName)) {
+            if (enforceSessionExpiry()) {
+                throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+            }
             args.push(AppState.session);
         }
 
@@ -1681,6 +1687,7 @@
                             sessionToken: response.session.sessionToken
                         };
                         localStorage.setItem('donationAdminSession', JSON.stringify(sessionData));
+                        scheduleSessionExpiry(sessionData);
                         
                         applySessionPermissions(response.session);
                         navigateTo('admin');
@@ -1730,34 +1737,75 @@
         }
     }
 
+    function scheduleSessionExpiry(session) {
+        const expiresAt = Number(session?.expiresAt || 0);
+        if (!expiresAt) return;
+
+        if (sessionExpiryTimer) {
+            clearTimeout(sessionExpiryTimer);
+        }
+
+        const delay = Math.max(0, expiresAt - Date.now());
+        sessionExpiryTimer = window.setTimeout(() => {
+            if (!enforceSessionExpiry()) {
+                scheduleSessionExpiry(AppState.session);
+            }
+        }, delay);
+    }
+
+    function enforceSessionExpiry() {
+        const expiresAt = Number(AppState.session?.expiresAt || 0);
+        if (!expiresAt || Date.now() < expiresAt) return false;
+
+        expireAdminSession();
+        return true;
+    }
+
+    function expireAdminSession() {
+        clearAdminSession();
+        showAlert('เซสชันหมดอายุ', 'กรุณาเข้าสู่ระบบใหม่', 'warning');
+    }
+
+    function clearAdminSession() {
+        if (sessionExpiryTimer) {
+            clearTimeout(sessionExpiryTimer);
+            sessionExpiryTimer = null;
+        }
+
+        AppState.isAdmin = false;
+        AppState.session = null;
+        localStorage.removeItem('donationAdminSession');
+
+        const displaySpan = document.getElementById('loggedInUserDisplay');
+        const avatarDiv = document.getElementById('loggedInUserAvatar');
+        if (displaySpan) {
+            displaySpan.textContent = 'ระบบ (admin)';
+        }
+        if (avatarDiv) {
+            avatarDiv.textContent = 'A';
+        }
+        const menuItemUsers = document.getElementById('menuItemUsers');
+        if (menuItemUsers) {
+            menuItemUsers.style.display = 'none';
+        }
+        const menuItemSettings = document.querySelector('.menu-item[data-page="settings"]');
+        if (menuItemSettings) {
+            menuItemSettings.style.display = 'none';
+        }
+
+        window.location.hash = '';
+        navigateTo('public');
+    }
+
     function logout() {
         showConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบใช่หรือไม่?', 'ออกจากระบบ', 'ยกเลิก')
             .then((result) => {
                 if (result.isConfirmed) {
-                    AppState.isAdmin = false;
-                    AppState.session = null;
-                    localStorage.removeItem('donationAdminSession');
-                    
-                    // Reset user display and hide admin-only menus
-                    const displaySpan = document.getElementById('loggedInUserDisplay');
-                    const avatarDiv = document.getElementById('loggedInUserAvatar');
-                    if (displaySpan) {
-                        displaySpan.textContent = 'ระบบ (admin)';
+                    const session = AppState.session;
+                    clearAdminSession();
+                    if (session?.sessionToken) {
+                        callApi('logoutUser', session).catch(error => console.warn('logoutUser error:', error));
                     }
-                    if (avatarDiv) {
-                        avatarDiv.textContent = 'A';
-                    }
-                    const menuItemUsers = document.getElementById('menuItemUsers');
-                    if (menuItemUsers) {
-                        menuItemUsers.style.display = 'none';
-                    }
-                    const menuItemSettings = document.querySelector('.menu-item[data-page="settings"]');
-                    if (menuItemSettings) {
-                        menuItemSettings.style.display = 'none';
-                    }
-
-                    window.location.hash = '';
-                    navigateTo('public');
                     showToast('ออกจากระบบเรียบร้อย', 'success');
                 }
             });
