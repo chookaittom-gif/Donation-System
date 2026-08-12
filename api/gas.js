@@ -16,25 +16,32 @@ export default async function handler(req, res) {
       });
     }
 
-    const gasRes = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body: JSON.stringify(req.body)
-    });
+    const retryableReadAction = ['getDonorsSummary', 'getBankAccounts'].includes(req.body?.action);
+    const attempts = retryableReadAction ? 2 : 1;
 
-    const text = await gasRes.text();
-
-    try {
-      const json = JSON.parse(text);
-      return res.status(200).json(json);
-    } catch (parseError) {
-      return res.status(502).json({
-        success: false,
-        message: 'Invalid JSON response from Apps Script',
-        raw: text
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const gasRes = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(req.body)
       });
+
+      const text = await gasRes.text();
+
+      try {
+        const json = JSON.parse(text);
+        return res.status(200).json(json);
+      } catch (parseError) {
+        if (attempt + 1 < attempts) continue;
+
+        return res.status(502).json({
+          success: false,
+          message: 'Invalid JSON response from Apps Script',
+          raw: text
+        });
+      }
     }
   } catch (error) {
     return res.status(500).json({
