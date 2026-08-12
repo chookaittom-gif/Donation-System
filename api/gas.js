@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const retryableReadAction = ['getPublicProjectInfo', 'getDonorsSummary', 'getBankAccounts'].includes(req.body?.action);
+    const retryableReadAction = ['getPublicProjectInfo', 'getDonations', 'getDonorsSummary', 'getBankAccounts'].includes(req.body?.action);
     const attempts = retryableReadAction ? 2 : 1;
 
     for (let attempt = 0; attempt < attempts; attempt++) {
