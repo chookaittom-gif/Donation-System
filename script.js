@@ -5,6 +5,7 @@
 
     // ===== GLOBAL STATE =====
     const activeRequests = new Map();
+    const API_REQUEST_TIMEOUT_MS = 40000;
     let sessionExpiryTimer = null;
     const AppState = {
         currentPage: 'public',
@@ -334,16 +335,24 @@
                 }
 
                 // Fallback to Vercel API proxy
-                const response = await fetch('/api/gas', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        action: functionName,
-                        args: args
-                    })
-                });
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
+                let response;
+                try {
+                    response = await fetch('/api/gas', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: functionName,
+                            args: args
+                        }),
+                        signal: controller.signal
+                    });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -356,6 +365,9 @@
                     throw new Error(result.message || 'เกิดข้อผิดพลาดในการประมวลผลข้อมูล');
                 }
             } catch (error) {
+                if (error?.name === 'AbortError') {
+                    error = new Error('การโหลดข้อมูลใช้เวลานานเกินไป กรุณาลองใหม่');
+                }
                 console.error(`API Error on ${functionName}:`, error);
                 throw error;
             } finally {
@@ -365,27 +377,6 @@
 
         activeRequests.set(requestKey, requestPromise);
         return requestPromise;
-    }
-
-    /**
-     * API Wrapper พร้อม Retry Logic
-     * @param {string} functionName - ชื่อฟังก์ชัน
-     * @param {Array} args - arguments สำหรับฟังก์ชัน
-     * @param {number} maxRetries - จำนวนครั้งที่ลองใหม่ (default: 3)
-     */
-    async function callApiWithRetry(functionName, args = [], maxRetries = 3) {
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-            try {
-                return await callApi(functionName, ...args);
-            } catch (error) {
-                console.warn(`API call ${functionName} failed (attempt ${attempt + 1}/${maxRetries}):`, error);
-                if (attempt === maxRetries - 1) {
-                    throw error;
-                }
-                // Exponential backoff: 1s, 2s, 4s...
-                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
-            }
-        }
     }
 
     // ===== DATA LOADING =====
@@ -409,7 +400,7 @@
             // เรียก API เดียวแทน 4 APIs (เร็วขึ้น 60-75%)
             let data = null;
             try {
-                data = await callApiWithRetry('getDashboardDataAll');
+                data = await callApi('getDashboardDataAll');
             } catch (err) {
                 console.warn('getDashboardDataAll failed, trying fallback...', err);
             }
@@ -455,6 +446,9 @@
             renderBankSelector();
         } catch (error) {
             console.error('loadBankAccounts error:', error);
+            if (!AppState.bankAccounts.length) {
+                showToast('ไม่สามารถโหลดข้อมูลบัญชีธนาคารได้ กรุณาลองใหม่', 'error');
+            }
         }
     }
 
