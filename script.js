@@ -1510,6 +1510,12 @@
         }
     }
 
+    function navigateToPublicHome() {
+        closeSidebar();
+        window.location.hash = '';
+        navigateTo('public');
+    }
+
     function navigateAdmin(page) {
         const role = String(AppState.session?.role || 'staff').toLowerCase();
         if (role !== 'admin' && (page === 'settings' || page === 'users')) {
