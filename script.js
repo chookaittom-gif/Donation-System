@@ -877,25 +877,26 @@
         // Destroy existing chart
         if (AppState.chart) {
             AppState.chart.destroy();
+            AppState.chart = null;
+        }
+
+        if (!chartData || !Array.isArray(chartData.data) || chartData.data.length === 0) {
+            return;
         }
 
         AppState.chart = new Chart(ctx, {
-            type: 'line',
+            type: 'bar',
             data: {
-                labels: chartData.labels,
+                labels: chartData.labels || [],
                 datasets: [{
                     label: 'ยอดบริจาค',
                     data: chartData.data,
-                    borderColor: '#F5A623',
-                    backgroundColor: 'rgba(245, 166, 35, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#F5A623',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7
+                    backgroundColor: '#F5A623',
+                    hoverBackgroundColor: '#E08E1D',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 36,
+                    barPercentage: 0.6
                 }]
             },
             options: {
@@ -1298,11 +1299,19 @@
         }
     }
 
+    function navigateToPublicHome() {
+        window.location.hash = '';
+        navigateTo('public');
+    }
+
     function handleHashChange() {
         const hash = window.location.hash;
         if (hash === '#admin') {
             if (!AppState.isAdmin) {
                 showAdminLogin();
+            } else {
+                navigateTo('admin');
+                navigateAdmin(AppState.currentAdminPage || 'dashboard');
             }
         } else if (hash === '#donate') {
             navigateTo('donate');
@@ -2252,6 +2261,7 @@
     window.filterDonations = filterDonations;
     window.searchDonations = searchDonations;
     window.applyFilters = applyFilters;
+    window.navigateToPublicHome = navigateToPublicHome;
 
     // ===== EXPORT FUNCTION =====
     async function exportDonations() {
