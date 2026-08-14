@@ -5,8 +5,6 @@
 
     // ===== GLOBAL STATE =====
     const activeRequests = new Map();
-    const API_REQUEST_TIMEOUT_MS = 40000;
-    let sessionExpiryTimer = null;
     const AppState = {
         currentPage: 'public',
         currentAdminPage: 'dashboard',
@@ -47,13 +45,16 @@
                         AppState.session = restoredSession;
                         AppState.isAdmin = true;
                         applySessionPermissions(restoredSession);
-                        scheduleSessionExpiry(restoredSession);
                         navigateTo('admin');
                         navigateAdmin('dashboard');
                         showToast('ยินดีต้อนรับกลับ, ' + restoredSession.displayName, 'success');
                     } else {
-                        AppState.session = restoredSession;
-                        expireAdminSession();
+                        localStorage.removeItem('donationAdminSession');
+                        AppState.session = null;
+                        AppState.isAdmin = false;
+                        window.location.hash = '';
+                        navigateTo('public');
+                        showAlert('เซสชันหมดอายุ', 'กรุณาเข้าสู่ระบบใหม่', 'warning');
                     }
                 } catch (e) {
                     console.error('Session restore error:', e);
@@ -62,6 +63,9 @@
             } else if (window.location.hash === '#admin') {
                 showAdminLogin();
             }
+
+            // Update public nav authentication UI
+            updatePublicNavAuthUI();
 
             // Setup event listeners
             setupEventListeners();
@@ -120,19 +124,12 @@
 
         // File upload drag and drop
         setupFileUpload();
-        setupProjectCoverUpload();
 
         // Form submissions
         setupFormHandlers();
-        setupUserPasswordToggle();
 
         // Hash change for navigation
         window.addEventListener('hashchange', handleHashChange);
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                enforceSessionExpiry();
-            }
-        });
 
 
         // Key bindings for userModal (Esc = Cancel, Enter = Save)
@@ -151,30 +148,6 @@
                     }
                 }
             }
-        });
-    }
-
-    function setUserPasswordVisibility(isVisible) {
-        const passwordInput = document.getElementById('userFormPassword');
-        const toggleButton = document.getElementById('userFormPasswordToggle');
-        if (!passwordInput || !toggleButton) return;
-
-        passwordInput.type = isVisible ? 'text' : 'password';
-        toggleButton.setAttribute('aria-label', isVisible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
-        toggleButton.setAttribute('aria-pressed', String(isVisible));
-        toggleButton.innerHTML = isVisible
-            ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
-            : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-    }
-
-    function setupUserPasswordToggle() {
-        const toggleButton = document.getElementById('userFormPasswordToggle');
-        const passwordInput = document.getElementById('userFormPassword');
-        if (!toggleButton || !passwordInput) return;
-
-        setUserPasswordVisibility(false);
-        toggleButton.addEventListener('click', () => {
-            setUserPasswordVisibility(passwordInput.type === 'password');
         });
     }
 
@@ -293,23 +266,18 @@
         // แซงแทรกเพื่อเติม session อัตโนมัติในฟังก์ชันที่ต้องกั้นสิทธิ์หลังบ้าน
         const protectedApis = [
             'saveSettings',
-            'uploadProjectCover',
             'createBankAccount',
             'updateBankAccount',
             'deleteBankAccount',
             'deleteDonation',
             'approveDonation',
             'rejectDonation',
-            'createOnsiteDonation',
             'generateDonationReport',
             'getUsers',
             'saveUser',
             'deleteUser'
         ];
         if (protectedApis.includes(functionName)) {
-            if (enforceSessionExpiry()) {
-                throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
-            }
             args.push(AppState.session);
         }
 
@@ -335,24 +303,16 @@
                 }
 
                 // Fallback to Vercel API proxy
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
-                let response;
-                try {
-                    response = await fetch('/api/gas', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: functionName,
-                            args: args
-                        }),
-                        signal: controller.signal
-                    });
-                } finally {
-                    clearTimeout(timeoutId);
-                }
+                const response = await fetch('/api/gas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: functionName,
+                        args: args
+                    })
+                });
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -365,9 +325,6 @@
                     throw new Error(result.message || 'เกิดข้อผิดพลาดในการประมวลผลข้อมูล');
                 }
             } catch (error) {
-                if (error?.name === 'AbortError') {
-                    error = new Error('การโหลดข้อมูลใช้เวลานานเกินไป กรุณาลองใหม่');
-                }
                 console.error(`API Error on ${functionName}:`, error);
                 throw error;
             } finally {
@@ -377,6 +334,27 @@
 
         activeRequests.set(requestKey, requestPromise);
         return requestPromise;
+    }
+
+    /**
+     * API Wrapper พร้อม Retry Logic
+     * @param {string} functionName - ชื่อฟังก์ชัน
+     * @param {Array} args - arguments สำหรับฟังก์ชัน
+     * @param {number} maxRetries - จำนวนครั้งที่ลองใหม่ (default: 3)
+     */
+    async function callApiWithRetry(functionName, args = [], maxRetries = 3) {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                return await callApi(functionName, ...args);
+            } catch (error) {
+                console.warn(`API call ${functionName} failed (attempt ${attempt + 1}/${maxRetries}):`, error);
+                if (attempt === maxRetries - 1) {
+                    throw error;
+                }
+                // Exponential backoff: 1s, 2s, 4s...
+                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+            }
+        }
     }
 
     // ===== DATA LOADING =====
@@ -400,7 +378,7 @@
             // เรียก API เดียวแทน 4 APIs (เร็วขึ้น 60-75%)
             let data = null;
             try {
-                data = await callApi('getDashboardDataAll');
+                data = await callApiWithRetry('getDashboardDataAll');
             } catch (err) {
                 console.warn('getDashboardDataAll failed, trying fallback...', err);
             }
@@ -446,20 +424,16 @@
             renderBankSelector();
         } catch (error) {
             console.error('loadBankAccounts error:', error);
-            if (!AppState.bankAccounts.length) {
-                showToast('ไม่สามารถโหลดข้อมูลบัญชีธนาคารได้ กรุณาลองใหม่', 'error');
-            }
         }
     }
 
     async function loadSettings() {
         try {
             showLoading('กำลังโหลดการตั้งค่า...');
-            const bankAccountsPromise = loadBankAccounts();
             const settings = await callApi('getSettings');
             AppState.settings = settings || {};
             renderSettingsForm(AppState.settings);
-            await bankAccountsPromise;
+            await loadBankAccounts();
         } catch (error) {
             console.error('loadSettings error:', error);
             showToast('เกิดข้อผิดพลาดในการโหลดการตั้งค่า', 'error');
@@ -494,23 +468,13 @@
         }
 
         const coverImage = document.getElementById('projectCoverImage');
-        const heroBlur = document.getElementById('heroCoverBlur');
         if (coverImage) {
-            coverImage.dataset.coverToken = projectCoverUrl;
-            coverImage.onerror = () => {
-                if (coverImage.dataset.coverToken === projectCoverUrl) {
-                    coverImage.style.display = 'none';
-                    if (heroBlur) heroBlur.style.backgroundImage = '';
-                }
-            };
             if (projectCoverUrl) {
                 coverImage.src = projectCoverUrl;
                 coverImage.style.display = '';
-                if (heroBlur) heroBlur.style.backgroundImage = `url("${projectCoverUrl}")`;
             } else {
                 coverImage.removeAttribute('src');
                 coverImage.style.display = 'none';
-                if (heroBlur) heroBlur.style.backgroundImage = '';
             }
         }
 
@@ -521,23 +485,13 @@
         }
 
         const sidebarImage = document.getElementById('sidebarCoverImage');
-        const sidebarBlur = document.getElementById('sidebarCoverBlur');
         if (sidebarImage) {
-            sidebarImage.dataset.coverToken = projectCoverUrl;
-            sidebarImage.onerror = () => {
-                if (sidebarImage.dataset.coverToken === projectCoverUrl) {
-                    sidebarImage.style.display = 'none';
-                    if (sidebarBlur) sidebarBlur.style.backgroundImage = '';
-                }
-            };
             if (projectCoverUrl) {
                 sidebarImage.src = projectCoverUrl;
                 sidebarImage.style.display = '';
-                if (sidebarBlur) sidebarBlur.style.backgroundImage = `url("${projectCoverUrl}")`;
             } else {
                 sidebarImage.removeAttribute('src');
                 sidebarImage.style.display = 'none';
-                if (sidebarBlur) sidebarBlur.style.backgroundImage = '';
             }
         }
 
@@ -689,20 +643,8 @@
         const prevRefInput = document.querySelector('input[name="PreviousDonationReference"]');
         const noticeEl = document.getElementById('donationFormStatusNotice');
         
-        const activityType = (AppState.settings && AppState.settings.ActivityType) ? AppState.settings.ActivityType.toUpperCase() : 'BOTH';
-        const isOnlineChannelEnabled = !(AppState.settings && AppState.settings.DonationChannelOnline === 'false');
-        
         if (noticeEl) {
-            if (!isOnlineChannelEnabled) {
-                noticeEl.className = 'status-banner closed';
-                noticeEl.innerHTML = '🔒 ปิดรับการบริจาคผ่านช่องทาง Online';
-                noticeEl.style.display = 'block';
-                const donationForm = document.getElementById('donationForm');
-                if (donationForm) {
-                    const submitBtn = donationForm.querySelector('button[type="submit"]');
-                    if (submitBtn) submitBtn.disabled = true;
-                }
-            } else if (status === 'POST_EVENT') {
+            if (status === 'POST_EVENT') {
                 noticeEl.className = 'status-banner post-event';
                 noticeEl.innerHTML = '🕒 กิจกรรมหลักสิ้นสุดแล้ว ท่านยังสามารถร่วมบริจาคสนับสนุนเพิ่มเติมได้ผ่านช่องทางนี้';
                 noticeEl.style.display = 'block';
@@ -713,8 +655,8 @@
         
         if (status === 'POST_EVENT') {
             if (attendanceContainer) attendanceContainer.style.display = 'none';
-            if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
-            if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
+            if (onsiteInput) onsiteInput.required = false;
+            if (onlineInput) onlineInput.required = false;
             if (contributionContainer) contributionContainer.style.display = '';
             
             // Setup change listeners for ContributionType radio buttons
@@ -737,47 +679,12 @@
                 if (prevRefContainer) prevRefContainer.style.display = 'none';
             }
         } else {
+            if (attendanceContainer) attendanceContainer.style.display = '';
+            if (onsiteInput) onsiteInput.required = true;
+            if (onlineInput) onlineInput.required = true;
             if (contributionContainer) contributionContainer.style.display = 'none';
             if (prevRefContainer) prevRefContainer.style.display = 'none';
             if (prevRefInput) prevRefInput.value = '';
-
-            const attendanceOptions = document.getElementById('attendanceTypeOptions');
-            const attendanceFixedInfo = document.getElementById('attendanceFixedInfo');
-            const attendanceFixedIcon = document.getElementById('attendanceFixedIcon');
-            const attendanceFixedText = document.getElementById('attendanceFixedText');
-
-            if (activityType === 'NONE') {
-                if (attendanceContainer) attendanceContainer.style.display = 'none';
-                if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
-                if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
-            } else if (activityType === 'ONSITE') {
-                if (attendanceContainer) attendanceContainer.style.display = '';
-                if (attendanceOptions) attendanceOptions.style.setProperty('display', 'none', 'important');
-                if (attendanceFixedInfo) {
-                    attendanceFixedInfo.style.display = 'flex';
-                    if (attendanceFixedIcon) attendanceFixedIcon.textContent = '📍';
-                    if (attendanceFixedText) attendanceFixedText.textContent = 'การเข้าร่วมกิจกรรม: Onsite';
-                }
-                if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = true; }
-                if (onlineInput) { onlineInput.required = false; onlineInput.checked = false; }
-            } else if (activityType === 'ONLINE') {
-                if (attendanceContainer) attendanceContainer.style.display = '';
-                if (attendanceOptions) attendanceOptions.style.setProperty('display', 'none', 'important');
-                if (attendanceFixedInfo) {
-                    attendanceFixedInfo.style.display = 'flex';
-                    if (attendanceFixedIcon) attendanceFixedIcon.textContent = '💻';
-                    if (attendanceFixedText) attendanceFixedText.textContent = 'การเข้าร่วมกิจกรรม: Online';
-                }
-                if (onsiteInput) { onsiteInput.required = false; onsiteInput.checked = false; }
-                if (onlineInput) { onlineInput.required = false; onlineInput.checked = true; }
-            } else {
-                // BOTH
-                if (attendanceContainer) attendanceContainer.style.display = '';
-                if (attendanceOptions) attendanceOptions.style.display = '';
-                if (attendanceFixedInfo) attendanceFixedInfo.style.setProperty('display', 'none', 'important');
-                if (onsiteInput) onsiteInput.required = true;
-                if (onlineInput) onlineInput.required = true;
-            }
         }
     }
 
@@ -844,9 +751,7 @@
         const bankColor = primaryAccount.bankColor || primaryAccount.BankColor || '#1976D2';
         const branch = primaryAccount.branch || primaryAccount.Branch || '-';
         const accountType = primaryAccount.accountType || primaryAccount.AccountType || 'savings';
-        const qrCodeType = primaryAccount.qrCodeType || primaryAccount.QRCodeType || 'none';
         const qrCodeUrl = primaryAccount.qrCodeUrl || primaryAccount.QRCodeUrl || '';
-        const hasQrCode = qrCodeType !== 'none' && Boolean(qrCodeUrl && qrCodeUrl.trim());
 
         container.innerHTML = `
             <div class="sidebar-bank-card" style="
@@ -872,7 +777,7 @@
                     <span>สาขา: ${branch}</span>
                     <span>ประเภท: ${getAccountTypeText(accountType)}</span>
                 </div>
-                ${hasQrCode ? `
+                ${qrCodeUrl ? `
                 <div class="sidebar-qr-container" style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto; width: fit-content;">
                     <img src="${qrCodeUrl}" alt="QR Code พร้อมเพย์" class="sidebar-qr-image" style="object-fit: contain; border-radius: 8px;">
                     <div class="qr-label" style="color: #333; font-size: 0.75rem; margin-top: 8px; font-weight: 600;">สแกน QR เพื่อโอนเงิน</div>
@@ -969,48 +874,31 @@
         const ctx = document.getElementById('donationChart');
         if (!ctx) return;
 
-        const chartPanel = ctx.closest('.card');
-
         // Destroy existing chart
         if (AppState.chart) {
             AppState.chart.destroy();
-            AppState.chart = null;
         }
-
-        const values = chartData && Array.isArray(chartData.data)
-            ? chartData.data.map(value => {
-                const number = parseFloat(String(value ?? '').replace(/,/g, ''));
-                return Number.isFinite(number) ? number : 0;
-            })
-            : [];
-        const labels = chartData && Array.isArray(chartData.labels)
-            ? chartData.labels.slice(0, values.length)
-            : [];
-        while (labels.length < values.length) labels.push('');
-
-        if (!values.some(value => value > 0)) {
-            if (chartPanel) chartPanel.style.display = 'none';
-            return;
-        }
-
-        if (chartPanel) chartPanel.style.display = '';
 
         AppState.chart = new Chart(ctx, {
-            type: 'bar',
+            type: 'line',
             data: {
-                labels: labels,
+                labels: chartData.labels,
                 datasets: [{
                     label: 'ยอดบริจาค',
-                    data: values,
+                    data: chartData.data,
                     borderColor: '#F5A623',
-                    backgroundColor: 'rgba(245, 166, 35, 0.75)',
-                    borderWidth: 1,
-                    borderRadius: 6,
-                    maxBarThickness: 56
+                    backgroundColor: 'rgba(245, 166, 35, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#F5A623',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
                 }]
             },
             options: {
-                indexAxis: 'x',
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
@@ -1032,13 +920,7 @@
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: {
-                            autoSkip: true,
-                            maxTicksLimit: 7,
-                            minRotation: 0,
-                            maxRotation: 0,
-                            font: { family: 'Kanit' }
-                        }
+                        ticks: { font: { family: 'Kanit' } }
                     },
                     y: {
                         beginAtZero: true,
@@ -1131,12 +1013,6 @@
     }
 
     function renderDonationsList(donations) {
-        const btnAdminOnsite = document.getElementById('btnAdminOnsiteDonation');
-        if (btnAdminOnsite) {
-            const isDonationChannelOnsite = !(AppState.settings && AppState.settings.DonationChannelOnsite === 'false');
-            btnAdminOnsite.style.display = (AppState.isAdmin && isDonationChannelOnsite) ? 'inline-block' : 'none';
-        }
-
         const tbody = document.getElementById('donationsTableBody');
         if (!tbody) return;
 
@@ -1165,10 +1041,7 @@
           <strong>${d.DonorName || 'ไม่ประสงค์ออกนาม'}</strong>
           <div class="text-muted" style="font-size: 0.8rem">${d.DonorPhone || '-'}</div>
           <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;">
-               <span class="channel-badge ${d.DonationChannel === 'ONSITE' ? 'onsite' : 'online'}">
-                   ${d.DonationChannel === 'ONSITE' ? '🏢 ช่องทางบริจาค: Onsite' : '🌐 ช่องทางบริจาค: Online'}
-               </span>
-               <span class="phase-badge ${d.DonationPhase === 'POST_EVENT' ? 'post-event' : 'event-period'}">
+              <span class="phase-badge ${d.DonationPhase === 'POST_EVENT' ? 'post-event' : 'event-period'}">
                   ${d.DonationPhase === 'POST_EVENT' ? 'หลังจบกิจกรรม' : 'กิจกรรมหลัก'}
               </span>
               ${d.ContributionType === 'ADDITIONAL' ? `
@@ -1282,21 +1155,6 @@
         setInputValue('ProjectType', settings.ProjectType || '');
         setInputValue('Tags', settings.Tags || '');
         setInputValue('ProjectCoverUrl', settings.ProjectCoverUrl || '');
-        renderProjectCoverPreview(getProjectCoverDisplayUrl(settings.ProjectCoverUrl || ''));
-        const projectCoverInput = document.getElementById('projectCoverFile');
-        if (projectCoverInput) projectCoverInput.value = '';
-        if (AppState.projectCoverPreviewUrl) {
-            URL.revokeObjectURL(AppState.projectCoverPreviewUrl);
-            AppState.projectCoverPreviewUrl = null;
-        }
-        AppState.projectCoverFile = null;
-        const projectCoverStatus = document.getElementById('projectCoverUploadStatus');
-        if (projectCoverStatus) {
-            projectCoverStatus.textContent = settings.ProjectCoverUrl
-                ? `ลิงก์ภาพปัจจุบัน: ${settings.ProjectCoverUrl}`
-                : 'เลือกไฟล์เพื่อเปลี่ยนภาพปกใหม่';
-        }
-
         setInputValue('SidebarTitle', settings.SidebarTitle || '');
         setInputValue('TargetAmount', settings.TargetAmount || '');
         setInputValue('StartDate', formatDateForInput(settings.StartDate));
@@ -1315,121 +1173,6 @@
         setInputValue('CacheTTL', settings.CacheTTL || '');
         setInputValue('EventStatus', settings.EventStatus || 'OPEN');
         setCheckboxValue('AutoUpdateEventStatus', toBoolean(settings.AutoUpdateEventStatus));
-        setInputValue('ActivityType', settings.ActivityType || 'BOTH');
-        setCheckboxValue('DonationChannelOnline', settings.DonationChannelOnline !== undefined ? toBoolean(settings.DonationChannelOnline) : true);
-        setCheckboxValue('DonationChannelOnsite', settings.DonationChannelOnsite !== undefined ? toBoolean(settings.DonationChannelOnsite) : true);
-    }
-
-    function getProjectCoverDisplayUrl(url) {
-        const text = String(url || '').trim();
-        if (text.indexOf('drive.google.com') === -1 && text.indexOf('docs.google.com') === -1) return text;
-        const match = text.match(/[?&]id=([^&]+)/) || text.match(/\/file\/d\/([^/]+)/);
-        if (!match) return text;
-
-        const fileId = match[1];
-        return 'https://lh3.googleusercontent.com/d/' + fileId;
-    }
-
-    function renderProjectCoverPreview(url) {
-        const preview = document.getElementById('projectCoverPreview');
-        const previewFrame = document.getElementById('projectCoverPreviewFrame');
-        const previewBlur = document.getElementById('projectCoverPreviewBlur');
-        const name = document.getElementById('projectCoverUploadName');
-        if (!preview) return;
-
-        const previewToken = url || '';
-        preview.dataset.previewToken = previewToken;
-        preview.onerror = () => {
-            if (preview.dataset.previewToken === previewToken) {
-                if (previewFrame) previewFrame.style.display = 'none';
-                preview.style.display = 'none';
-                if (previewBlur) previewBlur.style.backgroundImage = '';
-            }
-        };
-
-        if (url) {
-            preview.src = url;
-            preview.style.display = 'block';
-            if (previewFrame) previewFrame.style.display = 'flex';
-            if (previewBlur) previewBlur.style.backgroundImage = `url("${url}")`;
-            if (name && !AppState.projectCoverFile) name.textContent = 'ภาพปกปัจจุบัน';
-        } else {
-            preview.removeAttribute('src');
-            preview.style.display = 'none';
-            if (previewFrame) previewFrame.style.display = 'none';
-            if (previewBlur) previewBlur.style.backgroundImage = '';
-            if (name && !AppState.projectCoverFile) name.textContent = 'ยังไม่ได้เลือกภาพใหม่';
-        }
-    }
-
-    function setupProjectCoverUpload() {
-        const input = document.getElementById('projectCoverFile');
-        if (!input || input.dataset.bound === 'true') return;
-
-        input.dataset.bound = 'true';
-        input.addEventListener('change', (event) => {
-            const file = event.target.files && event.target.files[0];
-            if (!file) return;
-
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-            if (!allowedTypes.includes(file.type)) {
-                input.value = '';
-                showAlert('ไฟล์ไม่ถูกต้อง', 'กรุณาเลือกไฟล์ JPG, PNG หรือ WEBP', 'warning');
-                return;
-            }
-
-            if (file.size > 10 * 1024 * 1024) {
-                input.value = '';
-                showAlert('ไฟล์ใหญ่เกินไป', 'กรุณาเลือกภาพขนาดไม่เกิน 10 MB', 'warning');
-                return;
-            }
-
-            if (AppState.projectCoverPreviewUrl) {
-                URL.revokeObjectURL(AppState.projectCoverPreviewUrl);
-            }
-
-            AppState.projectCoverFile = file;
-            AppState.projectCoverPreviewUrl = URL.createObjectURL(file);
-            renderProjectCoverPreview(AppState.projectCoverPreviewUrl);
-
-            const name = document.getElementById('projectCoverUploadName');
-            if (name) name.textContent = `${file.name} (${formatFileSize(file.size)})`;
-        });
-    }
-
-    async function compressProjectCover(file) {
-        const dataUrl = await fileToBase64(file);
-        const image = await new Promise((resolve, reject) => {
-            const image = new Image();
-            image.onload = () => resolve(image);
-            image.onerror = () => reject(new Error('ไม่สามารถอ่านภาพปกได้'));
-            image.src = dataUrl;
-        });
-
-        const maxDimension = 1200;
-        const scale = Math.min(maxDimension / Math.max(image.naturalWidth, image.naturalHeight), 1);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('ไม่สามารถเตรียมพื้นที่บีบอัดภาพได้');
-        context.fillStyle = '#ffffff';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-        const qualities = [0.82, 0.72, 0.62];
-        for (const quality of qualities) {
-            const blob = await new Promise((resolve) => {
-                canvas.toBlob(resolve, 'image/jpeg', quality);
-            });
-
-            if (blob && (blob.size <= 1024 * 1024 || quality === qualities[qualities.length - 1])) {
-                return new File([blob], 'project-cover.jpg', { type: 'image/jpeg' });
-            }
-        }
-
-        throw new Error('ไม่สามารถบีบอัดภาพปกได้');
     }
 
     function collectSettingsFormData() {
@@ -1465,10 +1208,7 @@
             ContactEmail: getInputValue('ContactEmail'),
             ContactAttendanceType: getInputValue('ContactAttendanceType'),
             EventStatus: getInputValue('EventStatus'),
-            AutoUpdateEventStatus: getCheckboxValue('AutoUpdateEventStatus'),
-            ActivityType: getInputValue('ActivityType') || 'BOTH',
-            DonationChannelOnline: getCheckboxValue('DonationChannelOnline'),
-            DonationChannelOnsite: getCheckboxValue('DonationChannelOnsite')
+            AutoUpdateEventStatus: getCheckboxValue('AutoUpdateEventStatus')
         };
     }
 
@@ -1509,12 +1249,6 @@
                 navCta.classList.remove('visible');
             }
         }
-    }
-
-    function navigateToPublicHome() {
-        closeSidebar();
-        window.location.hash = '';
-        navigateTo('public');
     }
 
     function navigateAdmin(page) {
@@ -1569,9 +1303,6 @@
         if (hash === '#admin') {
             if (!AppState.isAdmin) {
                 showAdminLogin();
-            } else {
-                navigateTo('admin');
-                navigateAdmin('dashboard');
             }
         } else if (hash === '#donate') {
             navigateTo('donate');
@@ -1685,7 +1416,6 @@
                             sessionToken: response.session.sessionToken
                         };
                         localStorage.setItem('donationAdminSession', JSON.stringify(sessionData));
-                        scheduleSessionExpiry(sessionData);
                         
                         applySessionPermissions(response.session);
                         navigateTo('admin');
@@ -1733,77 +1463,52 @@
         if (menuItemSettings) {
             menuItemSettings.style.display = role === 'admin' ? 'flex' : 'none';
         }
+
+        updatePublicNavAuthUI();
     }
 
-    function scheduleSessionExpiry(session) {
-        const expiresAt = Number(session?.expiresAt || 0);
-        if (!expiresAt) return;
-
-        if (sessionExpiryTimer) {
-            clearTimeout(sessionExpiryTimer);
+    function updatePublicNavAuthUI() {
+        const loggedOutEl = document.getElementById('navAuthLoggedOut');
+        const loggedInEl = document.getElementById('navAuthLoggedIn');
+        if (AppState.isAdmin) {
+            if (loggedOutEl) loggedOutEl.style.display = 'none';
+            if (loggedInEl) loggedInEl.style.display = 'flex';
+        } else {
+            if (loggedOutEl) loggedOutEl.style.display = 'flex';
+            if (loggedInEl) loggedInEl.style.display = 'none';
         }
-
-        const delay = Math.max(0, expiresAt - Date.now());
-        sessionExpiryTimer = window.setTimeout(() => {
-            if (!enforceSessionExpiry()) {
-                scheduleSessionExpiry(AppState.session);
-            }
-        }, delay);
-    }
-
-    function enforceSessionExpiry() {
-        const expiresAt = Number(AppState.session?.expiresAt || 0);
-        if (!expiresAt || Date.now() < expiresAt) return false;
-
-        expireAdminSession();
-        return true;
-    }
-
-    function expireAdminSession() {
-        clearAdminSession();
-        showAlert('เซสชันหมดอายุ', 'กรุณาเข้าสู่ระบบใหม่', 'warning');
-    }
-
-    function clearAdminSession() {
-        if (sessionExpiryTimer) {
-            clearTimeout(sessionExpiryTimer);
-            sessionExpiryTimer = null;
-        }
-
-        AppState.isAdmin = false;
-        AppState.session = null;
-        localStorage.removeItem('donationAdminSession');
-
-        const displaySpan = document.getElementById('loggedInUserDisplay');
-        const avatarDiv = document.getElementById('loggedInUserAvatar');
-        if (displaySpan) {
-            displaySpan.textContent = 'ระบบ (admin)';
-        }
-        if (avatarDiv) {
-            avatarDiv.textContent = 'A';
-        }
-        const menuItemUsers = document.getElementById('menuItemUsers');
-        if (menuItemUsers) {
-            menuItemUsers.style.display = 'none';
-        }
-        const menuItemSettings = document.querySelector('.menu-item[data-page="settings"]');
-        if (menuItemSettings) {
-            menuItemSettings.style.display = 'none';
-        }
-
-        window.location.hash = '';
-        navigateTo('public');
     }
 
     function logout() {
         showConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบใช่หรือไม่?', 'ออกจากระบบ', 'ยกเลิก')
             .then((result) => {
                 if (result.isConfirmed) {
-                    const session = AppState.session;
-                    clearAdminSession();
-                    if (session?.sessionToken) {
-                        callApi('logoutUser', session).catch(error => console.warn('logoutUser error:', error));
+                    AppState.isAdmin = false;
+                    AppState.session = null;
+                    localStorage.removeItem('donationAdminSession');
+                    
+                    // Reset user display and hide admin-only menus
+                    const displaySpan = document.getElementById('loggedInUserDisplay');
+                    const avatarDiv = document.getElementById('loggedInUserAvatar');
+                    if (displaySpan) {
+                        displaySpan.textContent = 'ระบบ (admin)';
                     }
+                    if (avatarDiv) {
+                        avatarDiv.textContent = 'A';
+                    }
+                    const menuItemUsers = document.getElementById('menuItemUsers');
+                    if (menuItemUsers) {
+                        menuItemUsers.style.display = 'none';
+                    }
+                    const menuItemSettings = document.querySelector('.menu-item[data-page="settings"]');
+                    if (menuItemSettings) {
+                        menuItemSettings.style.display = 'none';
+                    }
+
+                    updatePublicNavAuthUI();
+
+                    window.location.hash = '';
+                    navigateTo('public');
                     showToast('ออกจากระบบเรียบร้อย', 'success');
                 }
             });
@@ -1911,8 +1616,6 @@
         const phaseText = donation.DonationPhase === 'POST_EVENT' ? 'หลังจบกิจกรรม' : 'กิจกรรมหลัก';
         const contribText = donation.ContributionType === 'ADDITIONAL' ? 'สนับสนุนเพิ่มเติม' : 'บริจาคครั้งแรก';
         const attendanceText = donation.AttendanceType === 'PostEvent' ? '— (หลังจบกิจกรรม)' : (donation.AttendanceType || '-');
-        const channelText = donation.DonationChannel === 'ONSITE' ? 'Onsite' : 'Online';
-        const paymentText = ({ CASH: 'เงินสด', TRANSFER: 'โอนเงิน', QR: 'QR' })[donation.PaymentMethod] || donation.PaymentMethod || '-';
 
         Swal.fire({
             title: 'รายละเอียดการบริจาค',
@@ -1922,8 +1625,6 @@
         <p><strong>ตำแหน่ง:</strong> ${donation.Position || '-'}</p>
         <p><strong>หน่วยงาน:</strong> ${donation.Organization || '-'}</p>
         <p><strong>เบอร์โทร:</strong> ${donation.DonorPhone || '-'}</p>
-        <p><strong>ช่องทางบริจาค:</strong> ${channelText}</p>
-        <p><strong>วิธีรับเงิน:</strong> ${paymentText}</p>
         <p><strong>เข้าร่วมกิจกรรม:</strong> ${attendanceText}</p>
         <p><strong>ลักษณะการสนับสนุน:</strong> ${contribText}</p>
         ${donation.ContributionType === 'ADDITIONAL' && donation.PreviousDonationReference ? `<p><strong>อ้างอิงรายการเดิม:</strong> ${donation.PreviousDonationReference}</p>` : ''}
@@ -2083,38 +1784,13 @@
         if (event && typeof event.preventDefault === 'function') event.preventDefault();
 
         const btn = event?.submitter || document.querySelector('#settingsForm button[type="submit"]') || document.querySelector('[onclick="saveSettings()"]');
-        const hasProjectCoverChange = Boolean(AppState.projectCoverFile);
         setButtonLoading(btn, true, '⏳ กำลังบันทึก...');
 
         try {
             const data = collectSettingsFormData();
-
-            if (AppState.projectCoverFile) {
-                const uploadStatus = document.getElementById('projectCoverUploadStatus');
-                if (uploadStatus) uploadStatus.textContent = 'กำลังบีบอัดภาพปก...';
-                const compressedFile = await compressProjectCover(AppState.projectCoverFile);
-                if (uploadStatus) uploadStatus.textContent = 'กำลังอัปโหลดภาพไป Google Drive...';
-
-                const base64 = await fileToBase64(compressedFile);
-                const uploadResult = await callApi(
-                    'uploadProjectCover',
-                    base64,
-                    compressedFile.type
-                );
-
-                if (!uploadResult || !uploadResult.success || !uploadResult.fileUrl) {
-                    throw new Error(uploadResult?.message || 'อัปโหลดภาพปกไป Google Drive ไม่สำเร็จ');
-                }
-
-                data.ProjectCoverUrl = uploadResult.fileUrl;
-                if (uploadStatus) uploadStatus.textContent = 'กำลังบันทึกลิงก์ภาพปก...';
-            }
-
             const response = await callApi('saveSettings', data);
 
             if (!response || !response.success) {
-                const uploadStatus = document.getElementById('projectCoverUploadStatus');
-                if (hasProjectCoverChange && uploadStatus) uploadStatus.textContent = 'บันทึกภาพปกไม่สำเร็จ กรุณาลองใหม่';
                 showAlert('ไม่สำเร็จ', response?.message || 'บันทึกไม่สำเร็จ', 'error');
                 return;
             }
@@ -2132,8 +1808,6 @@
             showToast(response.message || 'บันทึกการตั้งค่าเรียบร้อย', 'success');
         } catch (error) {
             console.error('saveSettings error:', error);
-            const uploadStatus = document.getElementById('projectCoverUploadStatus');
-            if (hasProjectCoverChange && uploadStatus) uploadStatus.textContent = 'อัปโหลดหรือบันทึกภาพปกไม่สำเร็จ กรุณาลองใหม่';
             showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
         } finally {
             setButtonLoading(btn, false);
@@ -2172,23 +1846,22 @@
         });
     }
 
-    function validateImageUpload(file) {
-        if (!file || !['image/jpeg', 'image/png'].includes(file.type)) {
-            showAlert('ไฟล์ไม่ถูกต้อง', 'กรุณาอัปโหลดไฟล์รูปภาพ (JPG, PNG)', 'warning');
-            return false;
-        }
-        if (file.size > 5 * 1024 * 1024) {
-            showAlert('ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์ต้องไม่เกิน 5MB', 'warning');
-            return false;
-        }
-        return true;
-    }
-
     function handleFiles(files) {
         if (files.length === 0) return;
 
         const file = files[0];
-        if (!validateImageUpload(file)) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showAlert('ไฟล์ไม่ถูกต้อง', 'กรุณาอัปโหลดไฟล์รูปภาพ (JPG, PNG)', 'warning');
+            return;
+        }
+
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert('ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์ต้องไม่เกิน 5MB', 'warning');
+            return;
+        }
 
         AppState.uploadedFile = file;
         showFilePreview(file);
@@ -2239,7 +1912,6 @@
 
         const form = e.target;
         const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn.disabled) return;
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
 
@@ -2248,11 +1920,6 @@
 
         if (!data.Amount || parseFloat(data.Amount) <= 0) {
             showAlert('กรุณากรอกจำนวนเงิน', '', 'warning');
-            return;
-        }
-
-        if (!AppState.uploadedFile) {
-            showAlert('กรุณาอัปโหลดสลิปการโอนเงิน', '', 'warning');
             return;
         }
 
@@ -2266,18 +1933,10 @@
             return;
         }
 
-        const activityType = (AppState.settings && AppState.settings.ActivityType) ? AppState.settings.ActivityType.toUpperCase() : 'BOTH';
         if (!isPostEvent) {
-            if (activityType === 'BOTH' && !data.AttendanceType) {
-                showAlert('กรุณาเลือกการเข้าร่วมกิจกรรม', '', 'warning');
+            if (!data.AttendanceType) {
+                showAlert('กรุณาเลือกรูปแบบการเข้าร่วมกิจกรรม', '', 'warning');
                 return;
-            }
-            if (activityType === 'NONE') {
-                data.AttendanceType = '-';
-            } else if (activityType === 'ONSITE') {
-                data.AttendanceType = 'Onsite';
-            } else if (activityType === 'ONLINE') {
-                data.AttendanceType = 'Online';
             }
         } else {
             // Validate ContributionType
@@ -2295,13 +1954,16 @@
         showLoading('กำลังบันทึกข้อมูล...');
 
         try {
-            const base64 = await fileToBase64(AppState.uploadedFile);
-            const uploadResult = await callApi('saveFileFromBase64', base64, AppState.uploadedFile.name, AppState.uploadedFile.type);
-            if (!uploadResult?.success || !uploadResult.fileId || !uploadResult.fileUrl) {
-                throw new Error(uploadResult?.message || 'อัปโหลดสลิปไม่สำเร็จ');
+            // Upload file first if exists
+            if (AppState.uploadedFile) {
+                const base64 = await fileToBase64(AppState.uploadedFile);
+                const uploadResult = await callApi('saveFileFromBase64', base64, AppState.uploadedFile.name, AppState.uploadedFile.type);
+
+                if (uploadResult.success) {
+                    data.SlipFileId = uploadResult.fileId;
+                    data.SlipUrl = uploadResult.fileUrl;
+                }
             }
-            data.SlipFileId = uploadResult.fileId;
-            data.SlipUrl = uploadResult.fileUrl;
 
             // Save donation
             const response = await callApi('createDonation', data);
@@ -2797,9 +2459,8 @@
     function toggleSidebar() {
         const sidebar = document.querySelector('.admin-sidebar');
         const overlay = document.querySelector('.sidebar-overlay');
-        const isActive = sidebar.classList.toggle('active');
-        overlay.classList.toggle('active', isActive);
-        document.querySelector('.nav-toggle')?.setAttribute('aria-expanded', String(isActive));
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
     }
 
     function closeSidebar() {
@@ -2807,7 +2468,6 @@
         const overlay = document.querySelector('.sidebar-overlay');
         sidebar.classList.remove('active');
         overlay.classList.remove('active');
-        document.querySelector('.nav-toggle')?.setAttribute('aria-expanded', 'false');
     }
 
     // ===== QR CODE FIELD TOGGLE =====
@@ -3070,7 +2730,6 @@
         
         form.reset();
         document.getElementById('userFormId').value = '';
-        setUserPasswordVisibility(false);
         
         const usernameInput = document.getElementById('userFormUsername');
         if (usernameInput) usernameInput.disabled = false;
@@ -3184,101 +2843,3 @@
             }
         }
     }
-
-    function openAdminOnsiteModal() {
-        const modal = document.getElementById('adminOnsiteModal');
-        if (!modal) return;
-        const form = document.getElementById('adminOnsiteForm');
-        if (form) {
-            form.reset();
-            const dateInput = form.querySelector('input[name="TransferDate"]');
-            if (dateInput) {
-                dateInput.value = new Date().toISOString().split('T')[0];
-            }
-        }
-        toggleOnsiteSlipUpload();
-        
-        const activityType = (AppState.settings && AppState.settings.ActivityType) ? AppState.settings.ActivityType.toUpperCase() : 'BOTH';
-        const status = (AppState.settings && AppState.settings.effectiveEventStatus) || 'OPEN';
-        const attendanceGroup = document.getElementById('onsiteAttendanceGroup');
-        if (attendanceGroup) {
-            attendanceGroup.style.display = (status !== 'POST_EVENT' && activityType === 'BOTH') ? '' : 'none';
-        }
-        openModal('adminOnsiteModal');
-    }
-
-    function toggleOnsiteSlipUpload() {
-        const paymentRadio = document.querySelector('input[name="PaymentMethod"]:checked');
-        const onsiteSlipGroup = document.getElementById('onsiteSlipGroup');
-        if (onsiteSlipGroup) {
-            if (paymentRadio && (paymentRadio.value === 'TRANSFER' || paymentRadio.value === 'QR')) {
-                onsiteSlipGroup.style.display = '';
-            } else {
-                onsiteSlipGroup.style.display = 'none';
-            }
-        }
-    }
-
-    async function submitAdminOnsiteDonation(e) {
-        e.preventDefault();
-        const form = e.target;
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn.disabled) return;
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData.entries());
-
-        if (!data.DonorName || !data.DonorName.trim()) {
-            showAlert('กรุณากรอกชื่อผู้บริจาค', '', 'warning');
-            return;
-        }
-        if (!data.Amount || parseFloat(data.Amount) <= 0) {
-            showAlert('กรุณากรอกจำนวนเงิน', '', 'warning');
-            return;
-        }
-        if (!data.TransferDate || !data.TransferTime) {
-            showAlert('กรุณากำหนดวันที่และเวลาบริจาค', '', 'warning');
-            return;
-        }
-
-        const onsiteSlipInput = document.getElementById('onsiteSlipFile');
-        const evidenceFile = onsiteSlipInput && onsiteSlipInput.files ? onsiteSlipInput.files[0] : null;
-        if (evidenceFile && !validateImageUpload(evidenceFile)) return;
-
-        data.TransferDate = `${data.TransferDate}T${data.TransferTime}`;
-        setButtonLoading(submitBtn, true, '⏳ กำลังบันทึก...');
-        showLoading('กำลังบันทึกบริจาคหน้างาน...');
-
-        try {
-            if ((data.PaymentMethod === 'TRANSFER' || data.PaymentMethod === 'QR') && evidenceFile) {
-                submitBtn.innerHTML = '⏳ กำลังอัปโหลดหลักฐาน...';
-                const file = evidenceFile;
-                const base64 = await fileToBase64(file);
-                const uploadResult = await callApi('saveFileFromBase64', base64, file.name, file.type);
-                if (!uploadResult?.success || !uploadResult.fileId || !uploadResult.fileUrl) {
-                    throw new Error(uploadResult?.message || 'อัปโหลดหลักฐานไม่สำเร็จ');
-                }
-                data.SlipFileId = uploadResult.fileId;
-                data.SlipUrl = uploadResult.fileUrl;
-            }
-
-            submitBtn.innerHTML = '⏳ กำลังบันทึก...';
-            const response = await callApi('createOnsiteDonation', data);
-            if (response && response.success) {
-                closeModal('adminOnsiteModal');
-                showToast(response.message || 'บันทึกบริจาคหน้างานเรียบร้อย', 'success');
-                await loadDonations();
-            } else {
-                showAlert('เกิดข้อผิดพลาด', response?.message || 'ไม่สามารถบันทึกได้', 'error');
-            }
-        } catch (error) {
-            console.error('submitAdminOnsiteDonation error:', error);
-            showAlert('เกิดข้อผิดพลาด', error.message, 'error');
-        } finally {
-            setButtonLoading(submitBtn, false);
-            hideLoading();
-        }
-    }
-
-    window.openAdminOnsiteModal = openAdminOnsiteModal;
-    window.toggleOnsiteSlipUpload = toggleOnsiteSlipUpload;
-    window.submitAdminOnsiteDonation = submitAdminOnsiteDonation;

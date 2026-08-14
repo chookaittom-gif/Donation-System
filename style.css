@@ -2491,23 +2491,96 @@
     }
   }
 
-  /* ===== NAV ACTIONS ===== */
+  /* ===== NAV ACTIONS & AUTH CONTROLS ===== */
   .nav-actions {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
   }
 
-  .nav-admin-icon {
-    font-size: 1.25rem;
+  .nav-auth-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  .nav-admin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
     text-decoration: none;
-    opacity: 0.6;
+    cursor: pointer;
+    min-height: 40px;
     transition: all var(--transition-fast);
+    line-height: 1;
+    white-space: nowrap;
   }
 
-  .nav-admin-icon:hover {
-    opacity: 1;
-    transform: rotate(90deg);
+  .nav-admin-btn:hover {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+    transform: translateY(-1px);
+  }
+
+  .nav-admin-btn.nav-admin-active {
+    color: var(--primary-color);
+    background: var(--primary-light);
+    border-color: rgba(47, 62, 131, 0.25);
+    font-weight: 600;
+  }
+
+  .nav-logout-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #DC2626;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    min-height: 40px;
+    transition: all var(--transition-fast);
+    line-height: 1;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+
+  .nav-logout-btn:hover {
+    color: #B91C1C;
+    background: #FEE2E2;
+    border-color: #F87171;
+    transform: translateY(-1px);
+  }
+
+  .nav-icon {
+    flex-shrink: 0;
+    vertical-align: middle;
+  }
+
+  @media (max-width: 640px) {
+    .nav-admin-btn,
+    .nav-logout-btn {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0 10px;
+      justify-content: center;
+    }
+
+    .nav-admin-btn .nav-btn-text,
+    .nav-logout-btn .nav-btn-text {
+      display: none;
+    }
   }
 
   /* ===== USER MODAL STYLING (Task 8 / FEATURE) ===== */
