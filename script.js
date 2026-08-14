@@ -751,7 +751,9 @@
         const bankColor = primaryAccount.bankColor || primaryAccount.BankColor || '#1976D2';
         const branch = primaryAccount.branch || primaryAccount.Branch || '-';
         const accountType = primaryAccount.accountType || primaryAccount.AccountType || 'savings';
-        const qrCodeUrl = primaryAccount.qrCodeUrl || primaryAccount.QRCodeUrl || '';
+        const qrCodeType = (primaryAccount.qrCodeType || primaryAccount.QRCodeType || 'none').toLowerCase();
+        const rawQrUrl = primaryAccount.qrCodeUrl || primaryAccount.QRCodeUrl || '';
+        const qrCodeUrl = (qrCodeType !== 'none' && rawQrUrl && String(rawQrUrl).trim() !== '') ? String(rawQrUrl).trim() : '';
 
         container.innerHTML = `
             <div class="sidebar-bank-card" style="
@@ -1755,6 +1757,15 @@
         const btn = event?.target || document.querySelector('[onclick="saveBankAccount()"]');
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
+
+        if (data.QRCodeType === 'none') {
+            data.QRCodeUrl = '';
+            data.PromptPayId = '';
+        } else if (data.QRCodeType === 'auto') {
+            data.QRCodeUrl = '';
+        } else if (data.QRCodeType === 'custom') {
+            data.PromptPayId = '';
+        }
 
         if (!data.BankCode || !data.AccountNumber || !data.AccountName) {
             showAlert('กรุณากรอกข้อมูลให้ครบ', 'รหัสธนาคาร เลขบัญชี และชื่อบัญชี เป็นข้อมูลที่จำเป็น', 'warning');
