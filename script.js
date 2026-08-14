@@ -19,6 +19,7 @@
         currentVisibleDonors: 20, // จำนวนปัจจุบันที่แสดงใน Modal
         editingId: null,
         uploadedFile: null,
+        uploadedCoverFile: null,
         chart: null
     };
 
@@ -124,6 +125,7 @@
 
         // File upload drag and drop
         setupFileUpload();
+        setupProjectCoverUpload();
 
         // Form submissions
         setupFormHandlers();
@@ -275,7 +277,8 @@
             'generateDonationReport',
             'getUsers',
             'saveUser',
-            'deleteUser'
+            'deleteUser',
+            'uploadProjectCover'
         ];
         if (protectedApis.includes(functionName)) {
             args.push(AppState.session);
@@ -468,13 +471,18 @@
         }
 
         const coverImage = document.getElementById('projectCoverImage');
+        const heroCoverBlur = document.getElementById('heroCoverBlur');
+        const heroCoverFrame = document.getElementById('heroCoverFrame');
         if (coverImage) {
             if (projectCoverUrl) {
                 coverImage.src = projectCoverUrl;
                 coverImage.style.display = '';
+                if (heroCoverBlur) heroCoverBlur.style.backgroundImage = `url(${projectCoverUrl})`;
+                if (heroCoverFrame) heroCoverFrame.style.display = '';
             } else {
                 coverImage.removeAttribute('src');
                 coverImage.style.display = 'none';
+                if (heroCoverBlur) heroCoverBlur.style.backgroundImage = '';
             }
         }
 
@@ -485,13 +493,18 @@
         }
 
         const sidebarImage = document.getElementById('sidebarCoverImage');
+        const sidebarCoverBlur = document.getElementById('sidebarCoverBlur');
+        const sidebarCoverFrame = document.getElementById('sidebarCoverFrame');
         if (sidebarImage) {
             if (projectCoverUrl) {
                 sidebarImage.src = projectCoverUrl;
                 sidebarImage.style.display = '';
+                if (sidebarCoverBlur) sidebarCoverBlur.style.backgroundImage = `url(${projectCoverUrl})`;
+                if (sidebarCoverFrame) sidebarCoverFrame.style.display = '';
             } else {
                 sidebarImage.removeAttribute('src');
                 sidebarImage.style.display = 'none';
+                if (sidebarCoverBlur) sidebarCoverBlur.style.backgroundImage = '';
             }
         }
 
@@ -1176,6 +1189,27 @@
         setInputValue('CacheTTL', settings.CacheTTL || '');
         setInputValue('EventStatus', settings.EventStatus || 'OPEN');
         setCheckboxValue('AutoUpdateEventStatus', toBoolean(settings.AutoUpdateEventStatus));
+
+        // Render project cover preview
+        const coverUrl = settings.ProjectCoverUrl || '';
+        const previewFrame = document.getElementById('projectCoverPreviewFrame');
+        const previewImg = document.getElementById('projectCoverPreview');
+        const previewBlur = document.getElementById('projectCoverPreviewBlur');
+        const uploadName = document.getElementById('projectCoverUploadName');
+        if (coverUrl) {
+            if (previewImg) previewImg.src = coverUrl;
+            if (previewBlur) previewBlur.style.backgroundImage = `url(${coverUrl})`;
+            if (previewFrame) previewFrame.style.display = 'block';
+            if (uploadName) uploadName.textContent = 'มีภาพปกปัจจุบันแล้ว (เลือกภาพใหม่หากต้องการเปลี่ยน)';
+        } else {
+            if (previewImg) previewImg.removeAttribute('src');
+            if (previewBlur) previewBlur.style.backgroundImage = '';
+            if (previewFrame) previewFrame.style.display = 'none';
+            if (uploadName) uploadName.textContent = 'ยังไม่ได้เลือกภาพใหม่';
+        }
+        AppState.uploadedCoverFile = null;
+        const coverFileInput = document.getElementById('projectCoverFile');
+        if (coverFileInput) coverFileInput.value = '';
     }
 
     function collectSettingsFormData() {
@@ -1808,6 +1842,25 @@
 
         try {
             const data = collectSettingsFormData();
+
+            // หากมีการเลือกภาพปกใหม่ ให้อัปโหลดไปยัง Google Drive ก่อน
+            if (AppState.uploadedCoverFile) {
+                const uploadStatus = document.getElementById('projectCoverUploadStatus');
+                if (uploadStatus) uploadStatus.textContent = '⏳ กำลังอัปโหลดภาพปกโครงการ...';
+                
+                const base64 = await fileToBase64(AppState.uploadedCoverFile);
+                const uploadResult = await callApi('uploadProjectCover', base64, AppState.uploadedCoverFile.type);
+                
+                if (uploadResult && uploadResult.success && uploadResult.fileUrl) {
+                    data.ProjectCoverUrl = uploadResult.fileUrl;
+                    const hiddenCoverInput = document.querySelector('#settingsForm [name="ProjectCoverUrl"]');
+                    if (hiddenCoverInput) hiddenCoverInput.value = uploadResult.fileUrl;
+                    AppState.uploadedCoverFile = null;
+                } else {
+                    throw new Error(uploadResult?.message || 'อัปโหลดภาพปกไม่สำเร็จ');
+                }
+            }
+
             const response = await callApi('saveSettings', data);
 
             if (!response || !response.success) {
@@ -1828,10 +1881,55 @@
             showToast(response.message || 'บันทึกการตั้งค่าเรียบร้อย', 'success');
         } catch (error) {
             console.error('saveSettings error:', error);
-            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+            showToast(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
         } finally {
+            const uploadStatus = document.getElementById('projectCoverUploadStatus');
+            if (uploadStatus) uploadStatus.textContent = 'ระบบจะบีบอัดภาพเป็น JPEG ไม่เกินประมาณ 1 MB ก่อนอัปโหลด Google Drive';
             setButtonLoading(btn, false);
         }
+    }
+
+    function setupProjectCoverUpload() {
+        const coverFileInput = document.getElementById('projectCoverFile');
+        if (!coverFileInput) return;
+
+        coverFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                showAlert('ไฟล์ไม่ถูกต้อง', 'กรุณาเลือกไฟล์ภาพ JPG, PNG หรือ WEBP เท่านั้น', 'warning');
+                coverFileInput.value = '';
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                showAlert('ขนาดไฟล์เกินกำหนด', 'กรุณาเลือกไฟล์ภาพขนาดไม่เกิน 5 MB', 'warning');
+                coverFileInput.value = '';
+                return;
+            }
+
+            AppState.uploadedCoverFile = file;
+
+            const uploadName = document.getElementById('projectCoverUploadName');
+            if (uploadName) {
+                uploadName.textContent = `ไฟล์ที่เลือก: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            }
+
+            // แสดงพรีวิวทันที
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const previewUrl = ev.target.result;
+                const previewFrame = document.getElementById('projectCoverPreviewFrame');
+                const previewImg = document.getElementById('projectCoverPreview');
+                const previewBlur = document.getElementById('projectCoverPreviewBlur');
+                if (previewImg) previewImg.src = previewUrl;
+                if (previewBlur) previewBlur.style.backgroundImage = `url(${previewUrl})`;
+                if (previewFrame) previewFrame.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
     // ===== FILE UPLOAD =====
